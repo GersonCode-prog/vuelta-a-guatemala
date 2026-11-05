@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Vuelta a Guatemala</title>
+<meta name="description" content="Un repartidor cruza Guatemala con un paquete urgente. Primera parada: Monterrico, en bicicleta.">
+<script type="module" src="/src/main.js"></script>
+</head>
+<body>
+<!--APP-START-->
+<div id="app" data-state="menu">
+  <canvas id="gl" aria-label="Un repartidor en bicicleta recorre una playa de arena negra al atardecer"></canvas>
+  <div id="nogl" class="screen gutter z-50 flex flex-col justify-center gap-3 bg-noche" hidden>
+    <h2 class="rotulo text-3xl">Este juego necesita WebGL2</h2>
+    <p id="noglText" class="note max-w-xl">Tu navegador no lo tiene activo. Abrilo en Chrome, Firefox, Safari o Edge normal (no en modo Internet Explorer) y activá la aceleración por hardware.</p>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="z-10" hidden>
+    <div id="hudTop" class="gutter pt-safe grid grid-cols-[1fr_auto_1fr] gap-x-3 items-start">
+      <div id="hudPkg" class="min-w-0 flex flex-col gap-1">
+        <p class="lab">Paquete <span id="hudPkgVal">100%</span></p>
+        <div id="hudPkgTrack"><div id="hudPkgBar"></div></div>
+        <p id="hudChip" class="w-fit" hidden></p>
+      </div>
+      <div class="flex flex-col items-center">
+        <div id="hudClockBox"><span id="hudClock">1:20</span></div>
+        <div id="hudTrack" aria-hidden="true"><i style="left:27.8%"></i><i style="left:55.6%"></i><i style="left:83.3%"></i><span id="hudMark"></span></div>
+      </div>
+      <div class="min-w-0 flex flex-col items-end text-right">
+        <div class="flex items-center gap-2"><span id="hudQ">Q0</span><button id="btnPause" class="chip" aria-label="Pausar el juego">II</button></div>
+        <span id="hudRacha" class="ink"></span>
+      </div>
+    </div>
+    <div id="phone" class="left-[max(16px,env(safe-area-inset-left,0px))] bottom-[clamp(5.2rem,14vh,7.5rem)]" hidden>
+      <p id="phoneFrom">Don Beto</p>
+      <p id="phoneText"></p>
+    </div>
+    <div id="hudBottom" class="gutter pb-safe absolute bottom-0 inset-x-0 flex items-end justify-between gap-3">
+      <div class="min-w-0">
+        <p class="lab mb-1">Fuerza</p>
+        <div id="hudForceTrack"><div id="hudForce"></div></div>
+      </div>
+      <p class="only-desk text-right ink"><span id="hudKmh">0</span> <span class="font-semibold">km/h</span></p>
+    </div>
+    <div id="bossBar" hidden><b>Terremoto</b><span class="tort"></span><span class="tort"></span><span class="tort"></span></div>
+    <div id="card" hidden>
+      <div class="inner gutter">
+        <div id="cardNum" aria-hidden="true">1</div>
+        <div class="min-w-0"><p id="cardName">La playa</p><p id="cardFact"></p></div>
+      </div>
+    </div>
+    <div id="tc" class="only-touch" hidden>
+      <button id="tcPedal" class="tcb" aria-label="Pedalear duro">Dale</button>
+      <button id="tcBrake" class="tcb" aria-label="Frenar">Freno</button>
+      <button id="tcJump" class="tcb" aria-label="Saltar">Saltar</button>
+    </div>
+  </div>
+  <div id="cutLayer" class="z-20" hidden><div id="cutText"></div><div id="cutSub"></div></div>
+  <div id="fxCalls" class="z-20"></div>
+
+  <!-- TÍTULO -->
+  <section id="scrTitle" class="screen gutter hdim pt-safe pb-safe flex flex-col justify-between gap-3 pointer-events-none z-30">
+    <header class="flex flex-wrap items-start justify-between gap-2" data-in>
+      <p class="lab">Entrega urgente · 6 paradas</p>
+      <div class="flex flex-wrap justify-end gap-1.5">
+        <button id="btnBell" class="chip">Timbre</button>
+        <button id="btnSound" class="chip">Sonido: sí</button>
+        <button id="btnFlash" class="chip">Destellos: sí</button>
+        <button id="btnFull" class="chip">Pantalla completa</button>
+      </div>
+    </header>
+    <div class="min-w-0">
+      <h1 id="logo" class="rotulo"><span class="w">Vuelta a</span><span class="w w2">Guatemala</span></h1>
+      <p class="tagline mt-4" data-in>Un paquete, seis paradas y Don Beto llamando cada cinco minutos. No lo abrás.</p>
+    </div>
+    <div class="flex flex-col gap-3 min-w-0">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-3" data-in>
+        <button id="btnStart" class="btn btn-main" data-focus>Arrancar en Monterrico</button>
+        <button id="btnContinue" class="btn btn-2" hidden><span>Seguir</span></button>
+        <p id="bestLine" class="legend font-semibold"></p>
+      </div>
+      <div id="route" data-in aria-label="Ruta del repartidor">
+        <div class="stop" data-open="1"><i class="dot"></i><b>Monterrico</b><span>Bicicleta</span></div>
+        <div class="stop"><i class="dot"></i><b>Taxisco y Guazacapán</b><span>Caballo · pronto</span></div>
+        <div class="stop"><i class="dot"></i><b>Ciudad de Guatemala</b><span>Camioneta · pronto</span></div>
+        <div class="stop"><i class="dot"></i><b>Antigua</b><span>Tuc-tuc · pronto</span></div>
+        <div class="stop"><i class="dot"></i><b>Atitlán</b><span>Lancha · pronto</span></div>
+        <div class="stop"><i class="dot"></i><b>Xela</b><span>Moto · pronto</span></div>
+      </div>
+      <p class="only-desk legend" data-in>Flechas o A y D: moverte · Espacio: saltar, y otra vez en el aire para la pirueta · ↑ pedalear duro · ↓ frenar · B: timbre · P: pausa</p>
+      <p class="only-touch legend" data-in hidden>Arrastrá el dedo para moverte. Los botones saltan, pedalean duro y frenan.</p>
+    </div>
+  </section>
+
+  <!-- TIENDA -->
+  <section id="scrShop" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-2.5 z-30" hidden>
+    <p class="lab" data-in>Parada · Paquete al <span id="shopPkg">100%</span></p>
+    <h2 class="rotulo bigline" data-in>Tiendita de Doña Tere</h2>
+    <p class="note" data-in>Tenés <b id="shopQ" class="text-oro text-xl">Q0</b> de propinas. Sigue: <b id="shopNext">El manglar</b>, <span id="shopTime">+70 s al reloj</span>.</p>
+    <div id="shopList" class="flex flex-col gap-1.5" data-in></div>
+    <div class="flex flex-wrap gap-3 mt-1.5" data-in>
+      <button id="btnShopGo" class="btn btn-main" data-focus>Seguir pedaleando</button>
+      <button id="btnFix" class="btn btn-2"><span>Reparar 25% · Q25</span></button>
+    </div>
+  </section>
+
+  <!-- PAUSA -->
+  <section id="scrPause" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-3 z-30" hidden>
+    <h2 class="rotulo bigline" data-in>Pausa</h2>
+    <p class="note text-[1.25rem]" data-in>Don Beto ya está marcando otra vez.</p>
+    <div class="flex flex-wrap gap-3" data-in>
+      <button id="btnResume" class="btn btn-main" data-focus>Seguir</button>
+      <button id="btnRestart" class="btn btn-2"><span>Repetir esta etapa</span></button>
+      <button id="btnQuit" class="btn btn-2"><span>Salir al título</span></button>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 mt-1" data-in>
+      <label for="rangeVol" class="lab">Volumen</label>
+      <input id="rangeVol" type="range" min="0" max="100" step="1" value="80">
+      <button id="btnSoundP" class="chip">Sonido: sí</button>
+      <button id="btnFlashP" class="chip">Destellos: sí</button>
+    </div>
+  </section>
+
+  <!-- FALLA -->
+  <section id="scrFail" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-3 z-30" role="status" hidden>
+    <h2 id="failTitle" class="rotulo bigline" data-in>Se te pasó la hora</h2>
+    <p id="failText" class="note text-[1.25rem] max-w-xl" data-in></p>
+    <div class="flex flex-wrap gap-3 mt-1" data-in>
+      <button id="btnRetry" class="btn btn-main" data-focus>Repetir la etapa</button>
+      <button id="btnFailMenu" class="btn btn-2"><span>Salir al título</span></button>
+    </div>
+  </section>
+
+  <!-- RESULTADOS -->
+  <section id="scrResults" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-3 z-30" role="status" hidden>
+    <p class="lab" data-in>Parada 1 de 6</p>
+    <h2 class="rotulo bigline" data-in>¡Monterrico, listo!</h2>
+    <div id="resStars" data-in aria-hidden="true"><i class="star"></i><i class="star"></i><i class="star"></i><i class="star"></i><i class="star"></i></div>
+    <ul id="resList" data-in></ul>
+    <div class="flex flex-wrap gap-x-7 gap-y-2" data-in>
+      <div class="stat"><p class="lab">Paquete</p><p id="resPkg" class="v">0%</p></div>
+      <div class="stat"><p class="lab">Tiempo sobrante</p><p id="resClock" class="v">0 s</p></div>
+      <div class="stat"><p class="lab">Propinas</p><p id="resQ" class="v">Q0</p></div>
+      <div class="stat"><p class="lab">Rozones</p><p id="resNear" class="v">0</p></div>
+      <div class="stat"><p class="lab">Encargos</p><p id="resEnc" class="v">0</p></div>
+    </div>
+    <p class="note text-[1.2rem] max-w-xl" data-in>La bicicleta quedó en el muelle. Del otro lado te espera un caballo con su carácter. Sigue <b class="text-oro">Taxisco y Guazacapán</b>, pronto.</p>
+    <div class="flex flex-wrap gap-3" data-in>
+      <button id="btnAgain" class="btn btn-main" data-focus>Volver a jugar</button>
+      <button id="btnCopy" class="btn btn-2"><span>Copiar resultado</span></button>
+      <button id="btnResMenu" class="btn btn-2"><span>Título</span></button>
+    </div>
+  </section>
+  <div id="toast" class="z-40" role="status" hidden></div>
+</div>
+<!--APP-END-->
+</body>
+</html>
