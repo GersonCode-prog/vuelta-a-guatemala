@@ -1,8 +1,31 @@
 # Vuelta a Guatemala
 
+**[▶ Jugar ahora](https://gersoncode-prog.github.io/vuelta-a-guatemala/)**
+
+![Three.js](https://img.shields.io/badge/Three.js-r158-e3262f)
+![anime.js](https://img.shields.io/badge/anime.js-3.2.2-ffc91f)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-12b5b0)
+![Licencia MIT](https://img.shields.io/badge/licencia-MIT-ff5d7d)
+
 Un repartidor cruza Guatemala con un paquete urgente. Don Beto llama cada cinco minutos, el reloj no perdona y el paquete no se puede abrir.
 
-Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, palmeras, casas, perro) se construye con código, y la música de marimba se genera en el navegador. No usa imágenes ni audio pregrabado.
+![Partida de Vuelta a Guatemala](docs/img/juego.gif)
+
+Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, palmeras, casas, perro) se construye con código, y la música de marimba se genera en el navegador. Los modelos y la música no vienen de archivos 3D ni de audio pregrabado.
+
+## Monterrico, la primera parada
+
+![Pantalla de título](docs/img/titulo.jpg)
+
+| La playa | El manglar |
+|---|---|
+| ![Playa de arena negra al atardecer](docs/img/playa.jpg) | ![Pasarela en el manglar](docs/img/manglar.jpg) |
+
+| El pueblo | Terremoto, el jefe |
+|---|---|
+| ![Pueblo de noche con luces de feria](docs/img/pueblo.jpg) | ![El chucho Terremoto marca una franja roja](docs/img/jefe.jpg) |
+
+![Llegada a la última lancha](docs/img/final.jpg)
 
 ## Estado
 
@@ -49,7 +72,7 @@ npm run build
 
 El proyecto ya trae el flujo en `.github/workflows/deploy.yml`:
 
-1. Subí el proyecto a un repositorio en GitHub, en la rama `main`.
+1. Subí el proyecto a un repositorio en GitHub, en la rama `main`. Revisá que también quede la carpeta `.github`: al subir por la web a veces no se incluye.
 2. Entrá a **Settings → Pages** y en **Source** elegí **GitHub Actions**.
 3. Cada vez que subás cambios a `main`, la página se publica sola.
 
@@ -64,6 +87,7 @@ src/
   game.js    estados, física, choques, jefe y controles
   main.js    punto de entrada
   styles.css estilos de la interfaz
+docs/img/    imágenes de este README
 ```
 
 Cada nivel nuevo es un archivo en `levels/` y cada vehículo uno en `vehicles/`.
