@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Vuelta a Guatemala</title>
-<meta name="description" content="Un repartidor cruza Guatemala con un paquete urgente. Primera parada: Monterrico, en bicicleta.">
+<meta name="description" content="Un repartidor cruza Guatemala con un paquete urgente: en bicicleta por Monterrico, a caballo por Taxisco y Guazacapán y en camioneta por la capital.">
 <script type="module" src="/src/main.js"></script>
 </head>
 <body>
 <!--APP-START-->
 <div id="app" data-state="menu">
-  <canvas id="gl" aria-label="Un repartidor en bicicleta recorre una playa de arena negra al atardecer"></canvas>
+  <canvas id="gl" aria-label="Un repartidor cruza Guatemala con un paquete urgente"></canvas>
   <div id="nogl" class="screen gutter z-50 flex flex-col justify-center gap-3 bg-noche" hidden>
     <h2 class="rotulo text-3xl">Este juego necesita WebGL2</h2>
     <p id="noglText" class="note max-w-xl">Tu navegador no lo tiene activo. Abrilo en Chrome, Firefox, Safari o Edge normal (no en modo Internet Explorer) y activá la aceleración por hardware.</p>
@@ -39,20 +39,21 @@
     </div>
     <div id="hudBottom" class="gutter pb-safe absolute bottom-0 inset-x-0 flex items-end justify-between gap-3">
       <div class="min-w-0">
-        <p class="lab mb-1">Fuerza</p>
+        <p id="hudForceLabel" class="lab mb-1">Fuerza</p>
         <div id="hudForceTrack"><div id="hudForce"></div></div>
       </div>
       <p class="only-desk text-right ink"><span id="hudKmh">0</span> <span class="font-semibold">km/h</span></p>
     </div>
-    <div id="bossBar" hidden><b>Terremoto</b><span class="tort"></span><span class="tort"></span><span class="tort"></span></div>
+    <div id="bossBar" hidden><b id="bossName">Terremoto</b><span class="tort"></span><span class="tort"></span><span class="tort"></span></div>
     <div id="card" hidden>
       <div class="inner gutter">
         <div id="cardNum" aria-hidden="true">1</div>
         <div class="min-w-0"><p id="cardName">La playa</p><p id="cardFact"></p></div>
       </div>
     </div>
+    <div id="ticket" hidden><p class="tk-h">PMT · Boleta de tránsito</p><p class="tk-r">Pasarse el semáforo en rojo</p><p id="ticketQ" class="tk-q">−Q25 y −4 s</p><span id="ticketStamp">MULTA</span></div>
     <div id="tc" class="only-touch" hidden>
-      <button id="tcPedal" class="tcb" aria-label="Pedalear duro">Dale</button>
+      <button id="tcPedal" class="tcb" aria-label="Ir más rápido">Dale</button>
       <button id="tcBrake" class="tcb" aria-label="Frenar">Freno</button>
       <button id="tcJump" class="tcb" aria-label="Saltar">Saltar</button>
     </div>
@@ -67,6 +68,7 @@
       <div class="flex flex-wrap justify-end gap-1.5">
         <button id="btnBell" class="chip">Timbre</button>
         <button id="btnSound" class="chip">Sonido: sí</button>
+        <button id="btnVoice" class="chip">Voces: sí</button>
         <button id="btnFlash" class="chip">Destellos: sí</button>
         <button id="btnFull" class="chip">Pantalla completa</button>
       </div>
@@ -79,25 +81,26 @@
       <div class="flex flex-wrap items-center gap-x-5 gap-y-3" data-in>
         <button id="btnStart" class="btn btn-main" data-focus>Arrancar en Monterrico</button>
         <button id="btnContinue" class="btn btn-2" hidden><span>Seguir</span></button>
+        <button id="btnRecords" class="btn btn-2"><span>Récords</span></button>
         <p id="bestLine" class="legend font-semibold"></p>
       </div>
       <div id="route" data-in aria-label="Ruta del repartidor">
-        <div class="stop" data-open="1"><i class="dot"></i><b>Monterrico</b><span>Bicicleta</span></div>
-        <div class="stop"><i class="dot"></i><b>Taxisco y Guazacapán</b><span>Caballo · pronto</span></div>
-        <div class="stop"><i class="dot"></i><b>Ciudad de Guatemala</b><span>Camioneta · pronto</span></div>
+        <button class="stop" data-level="monterrico" aria-pressed="true"><i class="dot"></i><b>Monterrico</b><span>Bicicleta</span></button>
+        <button class="stop" data-level="taxisco" aria-pressed="false"><i class="dot"></i><b>Taxisco y Guazacapán</b><span>Caballo</span></button>
+        <button class="stop" data-level="capital" aria-pressed="false"><i class="dot"></i><b>Ciudad de Guatemala</b><span>Camioneta</span></button>
         <div class="stop"><i class="dot"></i><b>Antigua</b><span>Tuc-tuc · pronto</span></div>
         <div class="stop"><i class="dot"></i><b>Atitlán</b><span>Lancha · pronto</span></div>
         <div class="stop"><i class="dot"></i><b>Xela</b><span>Moto · pronto</span></div>
       </div>
-      <p class="only-desk legend" data-in>Flechas o A y D: moverte · Espacio: saltar, y otra vez en el aire para la pirueta · ↑ pedalear duro · ↓ frenar · B: timbre · P: pausa</p>
-      <p class="only-touch legend" data-in hidden>Arrastrá el dedo para moverte. Los botones saltan, pedalean duro y frenan.</p>
+      <p id="legendDesk" class="only-desk legend" data-in>Flechas o A y D: moverte · Espacio: saltar, y otra vez en el aire para la pirueta · ↑ pedalear duro · ↓ frenar · B: timbre · P: pausa</p>
+      <p class="only-touch legend" data-in hidden>Arrastrá el dedo para moverte. Los botones saltan, aceleran y frenan.</p>
     </div>
   </section>
 
   <!-- TIENDA -->
   <section id="scrShop" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-2.5 z-30" hidden>
     <p class="lab" data-in>Parada · Paquete al <span id="shopPkg">100%</span></p>
-    <h2 class="rotulo bigline" data-in>Tiendita de Doña Tere</h2>
+    <h2 id="shopTitle" class="rotulo bigline" data-in>Tiendita de Doña Tere</h2>
     <p class="note" data-in>Tenés <b id="shopQ" class="text-oro text-xl">Q0</b> de propinas. Sigue: <b id="shopNext">El manglar</b>, <span id="shopTime">+70 s al reloj</span>.</p>
     <div id="shopList" class="flex flex-col gap-1.5" data-in></div>
     <div class="flex flex-wrap gap-3 mt-1.5" data-in>
@@ -119,6 +122,7 @@
       <label for="rangeVol" class="lab">Volumen</label>
       <input id="rangeVol" type="range" min="0" max="100" step="1" value="80">
       <button id="btnSoundP" class="chip">Sonido: sí</button>
+      <button id="btnVoiceP" class="chip">Voces: sí</button>
       <button id="btnFlashP" class="chip">Destellos: sí</button>
     </div>
   </section>
@@ -135,8 +139,8 @@
 
   <!-- RESULTADOS -->
   <section id="scrResults" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-3 z-30" role="status" hidden>
-    <p class="lab" data-in>Parada 1 de 6</p>
-    <h2 class="rotulo bigline" data-in>¡Monterrico, listo!</h2>
+    <p id="resStop" class="lab" data-in>Parada 1 de 6</p>
+    <h2 id="resTitle" class="rotulo bigline" data-in>¡Monterrico, listo!</h2>
     <div id="resStars" data-in aria-hidden="true"><i class="star"></i><i class="star"></i><i class="star"></i><i class="star"></i><i class="star"></i></div>
     <ul id="resList" data-in></ul>
     <div class="flex flex-wrap gap-x-7 gap-y-2" data-in>
@@ -146,12 +150,34 @@
       <div class="stat"><p class="lab">Rozones</p><p id="resNear" class="v">0</p></div>
       <div class="stat"><p class="lab">Encargos</p><p id="resEnc" class="v">0</p></div>
     </div>
-    <p class="note text-[1.2rem] max-w-xl" data-in>La bicicleta quedó en el muelle. Del otro lado te espera un caballo con su carácter. Sigue <b class="text-oro">Taxisco y Guazacapán</b>, pronto.</p>
+    <p id="resNote" class="note text-[1.2rem] max-w-xl" data-in></p>
+    <div id="recForm" class="recform" data-in>
+      <label for="recName" class="lab">Guardá tu récord para que todos lo vean</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="recName" type="text" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Tu nombre">
+        <button id="btnRecSave" class="btn btn-2"><span>Guardar</span></button>
+      </div>
+      <p id="recMsg" class="recmsg" role="status"></p>
+    </div>
     <div class="flex flex-wrap gap-3" data-in>
+      <button id="btnNext" class="btn btn-main" data-focus hidden>Seguir</button>
       <button id="btnAgain" class="btn btn-main" data-focus>Volver a jugar</button>
       <button id="btnCopy" class="btn btn-2"><span>Copiar resultado</span></button>
       <button id="btnResMenu" class="btn btn-2"><span>Título</span></button>
     </div>
+  </section>
+  <!-- RÉCORDS -->
+  <section id="scrRecords" class="screen gutter vdim pt-safe pb-safe flex flex-col screen-c gap-3 z-30" hidden>
+    <p class="lab" data-in>Los mejores repartidores</p>
+    <h2 class="rotulo bigline" data-in>Récords</h2>
+    <div id="recTabs" class="flex flex-wrap gap-2" role="tablist" aria-label="Parada" data-in>
+      <button class="chip" role="tab" data-rec="monterrico">Monterrico</button>
+      <button class="chip" role="tab" data-rec="taxisco">Taxisco</button>
+      <button class="chip" role="tab" data-rec="capital">Capital</button>
+    </div>
+    <ol id="recList" aria-live="polite" data-in></ol>
+    <p id="recNote" class="note" data-in></p>
+    <div class="flex flex-wrap gap-3" data-in><button id="btnRecBack" class="btn btn-main" data-focus>Volver</button></div>
   </section>
   <div id="toast" class="z-40" role="status" hidden></div>
 </div>

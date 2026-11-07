@@ -55,9 +55,9 @@ float halftone(vec2 fc,float v){
 }
 void main(){
   vec3 Nf=normalize(cross(dFdx(vW),dFdy(vW)));
-  float fl=step(.5,vFlatV);
+  float fl=step(.5,vFlatV),painted=1.-step(-.5,vFlatV);
   vec3 Ns=normalize(mix(vN,Nf,fl));
-  vec3 N=normalize(mix(Ns,Nf,uFlat));
+  vec3 N=normalize(mix(Ns,Nf,uFlat*(1.-painted)));
   vec3 V=normalize(cameraPosition-vW);
   float nl=dot(N,uSunDir)*.5+.5;
   float lit=smoothstep(.56,.58,nl);
@@ -68,7 +68,7 @@ void main(){
   float ht=halftone(gl_FragCoord.xy,clamp((.5-nl)*1.1,0.,.62))*(1.-lit)*(1.-smoothstep(30.,70.,dist));
   col=mix(col,base*uShade*.55,ht);
   float fr=pow(clamp(1.-dot(Ns,V),0.,1.),2.4);
-  float rim=smoothstep(.3,.36,fr*(.35+.65*max(dot(Ns,uSunDir),0.)));
+  float rim=smoothstep(.3,.36,fr*(.35+.65*max(dot(Ns,uSunDir),0.)))*(1.-painted);
   col=mix(col,max(base,vec3(.35))*uRim*1.5,rim);
   col+=base*lampAt(vW);
   col+=base*clamp(vGlow,0.,4.)*2.2;
@@ -231,7 +231,7 @@ precision highp float;
 varying vec2 vUv;
 uniform sampler2D uClouds;
 uniform vec3 uCamF,uCamR,uCamU,uSkyTop,uSkyMid,uSkyLow,uSunVis,uSunDisc,uCloudL,uCloudS,uHill,uHill2,uMoon;
-uniform float uTanX,uTanY,uTime,uNight,uYaw;
+uniform float uTanX,uTanY,uTime,uNight,uYaw,uLeftHills;
 ${NOISE}
 float ridge(float a,float s,float k){return (fbm2(vec2(a*s,k))-.42)*.2;}
 void main(){
@@ -291,6 +291,12 @@ void main(){
   col=mix(col,uCloudL,smoothstep(0.,.1,puff));
   if(el<h1&&az>.0)col=mix(uHill,uSkyLow,.42);
   if(el<h2&&az>.0)col=uHill2;
+  if(uLeftHills>.5){
+    float hL=(.022+ridge(az,6.,9.)*.26)*(1.-smoothstep(-.3,-.02,az));
+    float hF=(.012+ridge(az,11.,3.)*.1);
+    if(el<hF)col=mix(uHill2,uSkyLow,.3);
+    if(el<hL)col=mix(uHill2,uHill,.3);
+  }
   gl_FragColor=vec4(col,1.);
 }`;
 export const FS_CLOUDBAKE = `
@@ -414,6 +420,17 @@ void main(){
   if(rows==1.||rows==3.)c=z>.72?vec3(.95,.9,.75):vec3(.82,.04,.07);
   gl_FragColor=vec4(c*mix(uSunCol,vec3(1.),.35),1.);
 }`;
+// ── Cola del caballo: mechones oscuros con brillo ──
+export const FS_TAIL = `
+precision highp float;
+uniform vec3 uCol,uSunCol,uShade;
+varying vec2 vUv;
+void main(){
+  float t=clamp(vUv.x,0.,1.),s=clamp(vUv.y,0.,1.);
+  float strand=step(.5,fract(s*4.+t*1.5));
+  vec3 c=uCol*mix(uShade,uSunCol,.55)*(.72+.5*strand)+uSunCol*.09*(1.-abs(s-.5)*2.)*strand;
+  gl_FragColor=vec4(max(c,vec3(0.)),1.);
+}`;
 // ── Etiqueta del paquete ──
 export const VS_TEX = `
 ${BEND}
@@ -431,11 +448,11 @@ varying vec2 vQ;
 void main(){vQ=position.xy;vec4 w=bendW(modelMatrix*vec4(position.x,.05,position.y,1.));gl_Position=projectionMatrix*viewMatrix*w;}`;
 export const FS_MARK = `
 precision highp float;
-uniform float uTime,uAmt;
+uniform float uTime,uAmt,uFreq,uWid;
 varying vec2 vQ;
 void main(){
-  float d=abs(vQ.x);
-  float st=step(.5,fract(vQ.y*.7-uTime*3.));
+  float d=abs(vQ.x)/uWid;
+  float st=step(.5,fract(vQ.y*uFreq-uTime*3.));
   float a=(1.-smoothstep(.82,1.,d))*(.34+.5*st);
   gl_FragColor=vec4(vec3(1.5,.1,.14)*a*uAmt,a*uAmt);
 }`;
@@ -538,4 +555,197 @@ void main(){
   col=mix(col,vec3(.03,.02,.04),uFadeK);
   col=mix(col,vec3(1.,.97,.9),uFadeW);
   gl_FragColor=vec4(col,1.);
+}`;
+
+// ── Suelo de campo: potrero, puente sobre el río, cañal y calle de feria ──
+export const FS_GROUND_FARM = `
+precision highp float;
+uniform sampler2D uTrack;
+uniform float uDist,uLen,uTime,uFogA,uFogB,uNight;
+uniform vec2 uBurn;
+uniform vec3 uSunDir,uSunCol,uShade,uFog,uInk,uSkyTop,uSkyMid,uSkyLow;
+uniform vec3 uSandA,uSandB,uWet,uWaterA,uWaterB,uFoam,uPlank,uStreet,uGrass;
+${LIGHTS}
+${NOISE}
+varying vec2 vP;varying vec3 vW;
+vec3 skyC(vec3 R){
+  vec3 c=mix(uSkyLow,uSkyMid,smoothstep(0.,.2,R.y));
+  return mix(c,uSkyTop,smoothstep(.15,.65,R.y));
+}
+void main(){
+  float x=vP.x,D=uDist-vP.y;
+  vec4 tr=texture2D(uTrack,vec2(clamp(D/uLen,0.,1.),.5));
+  float cx=tr.r,hw=max(tr.g,0.),kind=tr.b,riv=tr.a;
+  // -1 en el canal del río: calle de feria en medio del campo (Taxisco).
+  float fairT=1.-smoothstep(-.6,-.4,riv);
+  riv=max(riv,0.);
+  float fw=fwidth(x)+.02,fd=fwidth(D)+.02;
+  float dx=abs(x-cx);
+  vec3 V=normalize(cameraPosition-vW);
+  vec3 R=reflect(-V,vec3(0.,1.,0.));
+  vec3 refl=skyC(R);
+  float g1=pow(max(dot(R,uSunDir),0.),24.);
+  float g2=pow(max(dot(R,uSunDir),0.),260.);
+  float far=1.-smoothstep(.05,.4,fd);
+  // Pasto pintado en tonos
+  float n1=vn2(vec2(x*.07,D*.05)),n2=vn2(vec2(x*.42,D*.16));
+  float tone=floor((n1*.72+n2*.28)*5.)/5.;
+  vec3 grass=uGrass*mix(.64,1.14,tone);
+  float blade=step(.86,hash21(floor(vec2(x*7.,D*2.2))))*far;
+  grass=mix(grass,uGrass*1.24,blade*.55);
+  float fl=step(.988,hash21(floor(vec2(x,D)*4.5)))*far;
+  grass=mix(grass,mix(vec3(1.,.82,.2),vec3(1.,.95,.86),step(.5,hash21(floor(vec2(x,D)*4.5)+3.))),fl);
+  // Camino de tierra con huellas
+  float wob=(vn2(vec2(D*.16,3.))-.5)*1.5;
+  float road=1.-smoothstep(hw+wob-.16-fw,hw+wob+.16+fw,dx);
+  float rt=vn2(vec2(x*.55,D*.17));
+  vec3 dirt=mix(uSandA,uSandB,floor(rt*3.)/3.);
+  float rut=1.-smoothstep(.06,.42,abs(dx-hw*.46));
+  dirt=mix(dirt,uSandA*.76,rut*.5);
+  float peb=step(.975,hash21(floor(vec2(x,D)*7.)))*far;
+  dirt=mix(dirt,uSandB*1.3,peb*.7);
+  float roadEdge=(1.-smoothstep(.0,.5,abs(dx-hw-wob)))*.5;
+  vec3 land=mix(mix(grass,uGrass*.62,roadEdge),dirt,road);
+  // Cañal: tierra oscura en surcos a los lados
+  float rows=step(.5,fract(x*.28));
+  vec3 soil=mix(uGrass*.34,uSandA*.42,rows);
+  float bn=vn2(vec2(x*.5,D*.4));
+  float burn=smoothstep(uBurn.x-14.,uBurn.x+14.,D)*(1.-smoothstep(uBurn.y-14.,uBurn.y+14.,D));
+  soil=mix(soil,vec3(.035,.03,.032),burn*.9);
+  vec3 canal=mix(soil,dirt*mix(1.,.72,burn),road);
+  float ember=burn*(1.-road)*step(.982,hash21(floor(vec2(x,D)*4.)))*(.55+.45*sin(uTime*7.+D));
+  canal+=vec3(2.2,.65,.1)*ember;
+  // Adoquín de feria con papel picado en el suelo
+  vec2 cb=vec2(x*1.05+step(.5,fract(D*.5))*.5,D*1.0);
+  vec2 fc=fract(cb),id=floor(cb);
+  float m=smoothstep(.02,.09,fc.x)*(1.-smoothstep(.91,.98,fc.x))*smoothstep(.02,.1,fc.y)*(1.-smoothstep(.9,.98,fc.y));
+  float cobbleTone=.84+.3*hash21(id);
+  vec3 cobble=uStreet*cobbleTone*mix(mix(.5,1.,m),1.,1.-far);
+  float inS=1.-smoothstep(hw-fw,hw+fw,dx);
+  vec3 side=uStreet*1.42+vec3(.02,.015,.0);
+  vec3 town=mix(side,cobble,inS);
+  float curb=1.-smoothstep(.0,.2,abs(dx-hw));
+  town=mix(town,uFoam*.55,curb*.7);
+  vec2 cf=floor(vec2(x,D)*5.5);
+  float conf=step(.972,hash21(cf))*far;
+  vec3 ccol=vec3(1.,.15,.2);
+  float hc=hash21(cf+7.);
+  if(hc>.75)ccol=vec3(1.,.8,.1);else if(hc>.5)ccol=vec3(.07,.72,.7);else if(hc>.25)ccol=vec3(1.,.36,.5);
+  town=mix(town,ccol,conf*.85);
+  // Mezcla por tipo de tramo
+  float isCane=smoothstep(1.45,1.55,kind);
+  float isTown=max(smoothstep(2.45,2.55,kind),fairT);
+  float isBridge=smoothstep(.45,.55,kind)*(1.-isCane);
+  vec3 col=mix(land,canal,isCane);
+  col=mix(col,town,isTown);
+  // Río: cruza el camino de lado a lado
+  float rn=(vn2(vec2(x*.045,D*.09))-.5)*.34;
+  float rv=riv+rn*step(.01,riv)*(1.-step(.99,riv));
+  float wat=smoothstep(.47,.53,rv);
+  if(wat>.001){
+    float deep=smoothstep(.0,.6,riv-.4)*(.45+.55*isBridge);
+    vec3 w=mix(uWaterB,uWaterA,deep);
+    w=mix(w,refl,.2+.14*far);
+    float flow=fract(x*.075-uTime*.42+vn2(vec2(x*.09,D*.22))*1.6);
+    float line=smoothstep(.88,.92,flow)*(1.-smoothstep(.94,.98,flow));
+    w=mix(w,uFoam,line*.5);
+    float ston=step(.8,vn2(vec2(x*.5,D*.5)))*(1.-isBridge)*.55;
+    w=mix(w,uSandA*.9,ston*.35);
+    w+=uSunCol*g1*.22+uSunCol*g2*step(.68,vn2(vec2(x*1.4,D*.3-uTime*.5)))*1.8;
+    col=mix(col,w,wat);
+    float bank=(1.-smoothstep(.0,.06,abs(rv-.5)));
+    col=mix(col,uFoam,bank*.85);
+  }
+  // Puente de tablas
+  float inW=1.-smoothstep(hw-fw,hw+fw,dx);
+  float plankN=floor(D*1.05);
+  float pl=fract(D*1.05);
+  float seam=smoothstep(.02,.07,pl)*(1.-smoothstep(.93,.98,pl));
+  vec3 wood=uPlank*(.78+.34*hash11(plankN))*mix(.42,1.,mix(1.,seam,far));
+  wood=mix(wood,uPlank*.42,smoothstep(hw-.3,hw-.2,dx));
+  col=mix(col,wood,inW*isBridge*step(.1,hw));
+  col=max(col,vec3(0.));
+  col+=col*lampAt(vec3(x,0.,vP.y))*2.2;
+  float dist=length(cameraPosition-vW);
+  gl_FragColor=vec4(mix(col,uFog,smoothstep(uFogA,uFogB,dist)),1.);
+}`;
+
+// ── Suelo de ciudad: avenida con camellón, periférico, puente sobre el barranco y calles del centro ──
+export const FS_GROUND_CITY = `
+precision highp float;
+uniform sampler2D uTrack;
+uniform float uDist,uLen,uTime,uFogA,uFogB,uNight;
+uniform vec3 uSunDir,uSunCol,uShade,uFog,uInk,uSkyTop,uSkyMid,uSkyLow;
+uniform vec3 uSandA,uSandB,uWet,uWaterA,uWaterB,uFoam,uPlank,uStreet,uGrass;
+${LIGHTS}
+${NOISE}
+varying vec2 vP;varying vec3 vW;
+float band(float v,float w,float fw){return 1.-smoothstep(w,w+fw,abs(v));}
+void main(){
+  float x=vP.x,D=uDist-vP.y;
+  vec4 tr=texture2D(uTrack,vec2(clamp(D/uLen,0.,1.),.5));
+  float cx=tr.r,hw=max(tr.g,0.),kind=tr.b,xw=tr.a;
+  float fw=fwidth(x)+.02,fd=fwidth(D)+.02;
+  float far=1.-smoothstep(.05,.4,fd);
+  float dx=x-cx,ax=abs(dx),mL=-dx-hw;
+  float isHwy=smoothstep(.5,.6,kind)*(1.-smoothstep(1.4,1.5,kind));
+  float isBr=smoothstep(1.5,1.6,kind)*(1.-smoothstep(2.4,2.5,kind));
+  float isZ1=smoothstep(2.5,2.6,kind);
+  float fast=max(isHwy,isBr);
+  // Cruce: .5 paso de cebra, 1 la calle que atraviesa; la rampa de subida deja la línea de alto.
+  float box=smoothstep(.72,.78,xw);
+  float cw=smoothstep(.22,.28,xw)*(1.-box);
+  float stopL=smoothstep(.07,.11,xw)*(1.-smoothstep(.19,.23,xw));
+  // Asfalto en tonos, con parches y grava
+  float n1=vn2(vec2(x*.11,D*.045)),n2=vn2(vec2(x*.8,D*.33));
+  vec3 asph=uStreet*(.84+.2*floor((n1*.7+n2*.3)*4.)/4.);
+  asph*=1.-step(.8,vn2(vec2(x*.2+3.,D*.07)))*.13;
+  asph=mix(asph,uStreet*1.35,step(.985,hash21(floor(vec2(x,D)*9.)))*far*.6);
+  float dash=step(.45,fract(D*.1)),lw=.075;
+  // Tres carriles en las calles anchas, dos en las del centro.
+  float lanes=mix(band(dx,lw,fw),max(band(dx-1.8,lw,fw),band(dx+1.8,lw,fw)),step(4.6,hw))*dash;
+  float edgeL=band(dx+hw-.32,lw*1.3,fw)*(1.-isZ1);
+  float edgeR=band(dx-hw+.32,lw,fw)*(1.-isZ1);
+  vec3 road=asph;
+  road=mix(road,uFoam*.86,lanes*(1.-cw)*.9);
+  road=mix(road,uWet,edgeL);
+  road=mix(road,uFoam*.86,edgeR);
+  road=mix(road,uFoam*.9,step(.5,fract(x*.85+.25))*cw*.9);
+  road=mix(road,uFoam*.9,stopL*.95);
+  // Banqueta de piso y terreno donde van los edificios
+  vec2 tl=fract(vec2(x*.9,D*.9));
+  float tileS=smoothstep(.0,.06,tl.x)*smoothstep(.0,.06,tl.y);
+  vec3 walk=uSandA*mix(.8,1.,tileS*far+(1.-far));
+  float walkW=mix(3.2,2.4,isZ1);
+  vec3 lots=uSandB*.6;
+  vec3 near_=mix(walk,lots,smoothstep(hw+walkW,hw+walkW+.1,ax));
+  // Avenida: camellón con grama y la vía de regreso
+  vec3 grass=uGrass*mix(.78,1.08,floor(vn2(vec2(x*.3,D*.12))*3.)/3.);
+  vec3 opp=uStreet*(.8+.16*n1);
+  opp=mix(opp,uFoam*.8,max(band(mL-7.,lw,fw),band(mL-10.7,lw,fw))*dash);
+  vec3 med=mix(grass,opp,smoothstep(3.2,3.3,mL));
+  med=mix(med,uSandB*1.12,band(mL-3.25,.12,fw));
+  med=mix(med,mix(walk,lots,smoothstep(17.6,17.7,mL)),smoothstep(14.4,14.5,mL));
+  // Periférico: hombro, talud de grama y vía contraria detrás de los muros
+  vec3 slope=mix(asph*.9,grass*.88,smoothstep(hw+2.3,hw+2.7,ax));
+  slope=mix(slope,grass*.72,smoothstep(hw+10.,hw+40.,ax));
+  vec3 hwL=mix(opp,grass*.8,smoothstep(12.2,12.6,mL));
+  vec3 side=dx>0.?mix(near_,slope,fast):mix(med,hwL,fast);
+  // Puente: barranco hondo a los dos lados
+  float rv=vn2(vec2(x*.05,D*.04)),rv2=vn2(vec2(x*.3,D*.2));
+  vec3 rav=mix(uWaterA,uWaterB,floor((rv*.7+rv2*.3)*4.)/4.);
+  rav=mix(rav*.8,uFog,.1+.22*smoothstep(hw+4.,hw+80.,ax));
+  side=mix(side,rav,isBr*smoothstep(hw+.55,hw+.7,ax));
+  // Zona 1: banquetas a los dos lados
+  side=mix(side,near_,isZ1);
+  side=mix(side,uSandB*1.12,band(ax-hw-.15,.15,fw)*(1.-fast));
+  vec3 col=mix(road,side,smoothstep(hw-fw,hw+fw,ax));
+  col=mix(col,asph*.94,box);
+  // Charcos de luz de los faroles en la noche
+  float pool=exp(-pow(mod(D,18.)-9.,2.)*.035)*exp(-pow(ax-hw-1.4,2.)*.05);
+  col+=col*vec3(1.25,.9,.5)*pool*uNight*1.7;
+  col=max(col,vec3(0.));
+  col+=col*lampAt(vec3(x,0.,vP.y))*2.2;
+  float dist=length(cameraPosition-vW);
+  gl_FragColor=vec4(mix(col,uFog,smoothstep(uFogA,uFogB,dist)),1.);
 }`;

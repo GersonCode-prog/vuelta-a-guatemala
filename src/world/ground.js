@@ -1,9 +1,9 @@
-// Suelo único: el shader decide si hay arena, mar, pasarela o calle según la pista del nivel.
+// Suelo único: un shader por tipo de nivel decide qué se pinta según la pista.
 import * as T from 'three';
 import {scene, U} from '../core/gfx.js';
-import {VS_GROUND, FS_GROUND} from '../core/shaders.js';
+import {VS_GROUND, FS_GROUND, FS_GROUND_FARM, FS_GROUND_CITY} from '../core/shaders.js';
 
-let mesh;
+let mesh, mats, trackTex;
 export function buildGround() {
   const W = 420, near = 40, far = 420, nx = 40, nz = 110;
   const pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = [];
@@ -25,14 +25,23 @@ export function buildGround() {
   g.setAttribute('position', new T.BufferAttribute(pos, 3));
   g.setIndex(idx);
   const uni = {};
-  ['uBend','uCamZ','uTrack','uDist','uLen','uTime','uFogA','uFogB','uNight','uSurge0','uSurge1','uSunDir','uSunCol','uShade','uFog','uInk','uSkyTop','uSkyMid','uSkyLow','uSandA','uSandB','uWet','uWaterA','uWaterB','uFoam','uPlank','uStreet','uGrass','uLampC','uLampP'].forEach((k) => (uni[k] = U[k]));
-  mesh = new T.Mesh(g, new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND, uniforms: uni, side: T.DoubleSide}));
+  ['uBend','uCamZ','uTrack','uDist','uLen','uTime','uFogA','uFogB','uNight','uSurge0','uSurge1','uSunDir','uSunCol','uShade','uFog','uInk','uSkyTop','uSkyMid','uSkyLow','uSandA','uSandB','uWet','uWaterA','uWaterB','uFoam','uPlank','uStreet','uGrass','uLampC','uLampP','uBurn'].forEach((k) => (uni[k] = U[k]));
+  mats = {
+    beach: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND, uniforms: uni, side: T.DoubleSide}),
+    farm: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_FARM, uniforms: uni, side: T.DoubleSide}),
+    city: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_CITY, uniforms: uni, side: T.DoubleSide}),
+  };
+  mesh = new T.Mesh(g, mats.beach);
   mesh.frustumCulled = false;
   mesh.renderOrder = -10;
   scene.add(mesh);
 }
 // Empaqueta la pista en una textura: x central, medio ancho, tipo de tramo y orilla base.
+export function setGround(kind) {
+  mesh.material = mats[kind];
+}
 export function setTrackTexture(level) {
+  if (trackTex) trackTex.dispose();
   const n = level.track.length / 4;
   const data = new Uint16Array(n * 4);
   for (let i = 0; i < n * 4; i++) data[i] = T.DataUtils.toHalfFloat(level.track[i]);
@@ -40,6 +49,7 @@ export function setTrackTexture(level) {
   tx.minFilter = tx.magFilter = T.LinearFilter;
   tx.wrapS = tx.wrapT = T.ClampToEdgeWrapping;
   tx.needsUpdate = true;
+  trackTex = tx;
   U.uTrack.value = tx;
   U.uLen.value = level.len;
 }

@@ -22,7 +22,7 @@ export const U = {
   uLampC: {value: new T.Color(0, 0, 0)}, uLampP: {value: new T.Vector2()},
   uShadowC: {value: new T.Color(0.04, 0.02, 0.1)}, uShadowA: {value: 0.5},
   uDist: {value: 0}, uLen: {value: 1}, uTrack: {value: null},
-  uSurge0: {value: new T.Vector4(0, 1, 0, 0)}, uSurge1: {value: new T.Vector4(0, 1, 0, 0)},
+  uSurge0: {value: new T.Vector4(0, 1, 0, 0)}, uSurge1: {value: new T.Vector4(0, 1, 0, 0)}, uBurn: {value: new T.Vector2(-1000, -1000)}, uLeftHills: {value: 0},
 };
 export const SKY = {
   uCamF: {value: new T.Vector3(0, 0, -1)}, uCamR: {value: new T.Vector3(1, 0, 0)}, uCamU: {value: new T.Vector3(0, 1, 0)},
@@ -88,7 +88,7 @@ export function initGfx() {
   runPass(makePass(S.FS_CLOUDBAKE, {}), cloudRT);
   SKY.uClouds.value = cloudRT.texture;
   const skyUni = Object.assign({}, SKY, {uTime: U.uTime, uSkyTop: U.uSkyTop, uSkyMid: U.uSkyMid, uSkyLow: U.uSkyLow, uSunVis: U.uSunVis, uSunDisc: U.uSunDisc,
-    uCloudL: U.uCloudL, uCloudS: U.uCloudS, uHill: U.uHill, uHill2: U.uHill2, uMoon: U.uMoon, uNight: U.uNight, uYaw: U.uYaw});
+    uCloudL: U.uCloudL, uCloudS: U.uCloudS, uHill: U.uHill, uHill2: U.uHill2, uMoon: U.uMoon, uNight: U.uNight, uYaw: U.uYaw, uLeftHills: U.uLeftHills});
   skyMesh = new T.Mesh(fsGeo, new T.ShaderMaterial({vertexShader: S.VS_SKY, fragmentShader: S.FS_SKY, uniforms: skyUni, depthTest: false, depthWrite: false}));
   skyMesh.frustumCulled = false;
   skyMesh.renderOrder = -30;

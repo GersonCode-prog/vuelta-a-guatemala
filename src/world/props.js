@@ -4,6 +4,8 @@ import {GeoB, hex, mixC} from '../core/geo.js';
 import {scene, celUni, U, camera, CAM_Z} from '../core/gfx.js';
 import {VS_CEL, FS_CEL, VS_HULL, FS_HULL, VS_SHADOW, FS_SHADOW, VS_SIGN, FS_SIGN} from '../core/shaders.js';
 import {PI, TAU, cos, sin, floor, min, max, seeded, lerp, MOBILE} from '../core/util.js';
+import {FARM_SPEC, buildWheel, syncWheel} from './props-farm.js';
+import {CITY_SPEC} from './props-city.js';
 
 const C = {
   trunk: hex('#6d4a33'), trunkD: hex('#3f2a22'), leaf: hex('#2f8f4e'), leafD: hex('#1e6b45'), coco: hex('#5c3f22'), cocoG: hex('#6fae3a'),
@@ -349,8 +351,10 @@ function cart() {
   b.sph([0.45, 1.5, 0.1], [0.26, 0.1, 0.1], hex('#d9894b'), 0.35, 4, 6);
   return b.build();
 }
+// Pintado (sin filo de luz): desde la cámara baja se ve como hoyo oscuro, no como charco brillante.
 function pothole() {
   const b = new GeoB();
+  b.flat = -1;
   b.tube([0, 0.012, 0], [0, 0.03, 0], 1, 0.82, hex('#14100e'), 12);
   return b.build();
 }
@@ -428,6 +432,8 @@ export function buildProps() {
   const uni = celUni();
   const mat = new T.ShaderMaterial({vertexShader: VS_CEL, fragmentShader: FS_CEL, uniforms: uni});
   const hullMat = new T.ShaderMaterial({vertexShader: VS_HULL, fragmentShader: FS_HULL, uniforms: uni, side: T.BackSide});
+  Object.assign(SPEC, FARM_SPEC, CITY_SPEC);
+  buildWheel();
   for (const name in SPEC) {
     const [fn, cap, sh, noHull] = SPEC[name];
     const g = fn();
@@ -493,19 +499,19 @@ export function syncProps(level, dist, time, decorOnly) {
   // avance del cursor: items ordenados por D
   while (level.cursor < items.length && items[level.cursor].D < dist - 16) level.cursor++;
   while (level.cursor > 0 && items[level.cursor - 1].D >= dist - 16) level.cursor--;
-  const camX = camera.position.x, camY = camera.position.y;
+  const camX = camera.position.x, camY = camera.position.y, camZ = camera.position.z;
   for (let i = level.cursor; i < items.length; i++) {
     const it = items[i];
     if (it.D > dist + VIEW_D) break;
     if (it.gone || (decorOnly && !it.decor)) continue;
     // En teléfono se dibuja la mitad del follaje: se nota poco y rinde mucho.
-    if (MOBILE && i % 2 && (it.t === 'mangrove' || it.t === 'reed' || it.t === 'palm')) continue;
-    drawItem(it, dist, time, camX, camY);
+    if (MOBILE && i % 2 && (it.t === 'mangrove' || it.t === 'reed' || it.t === 'palm' || it.t === 'tuft' || it.far)) continue;
+    drawItem(it, dist, time, camX, camY, camZ);
   }
   if (!decorOnly) for (const it of level.movers) {
     if (it.gone || !it.on) continue;
     if (it.D > dist + VIEW_D || it.D < dist - 16) continue;
-    drawItem(it, dist, time, camX, camY);
+    drawItem(it, dist, time, camX, camY, camZ);
   }
   for (const k in defs) {
     const d = defs[k];
@@ -523,20 +529,38 @@ export function syncProps(level, dist, time, decorOnly) {
   shadowMesh.count = shadowCount;
   shadowMesh.instanceMatrix.needsUpdate = true;
   syncSigns(level, dist, decorOnly);
+  syncWheel(level, dist, time);
 }
-function drawItem(it, dist, time, camX, camY) {
-  const z = -(it.D - dist);
-  // Nada se atraviesa con la cámara.
-  const zc = z - CAM_Z, xc = it.x - camX;
+function drawItem(it, dist, time, camX, camY, camZ) {
+  let z = -(it.D - dist), x = it.x;
+  // Nada se atraviesa con la cámara (lo que pasa por arriba, como las pasarelas, sí).
+  const zc = z - camZ, xc = x - camX;
   const big = it.w || 1;
-  if (zc * zc + xc * xc < big * big + 1.5 && (it.y || 0) + 2 > camY - 2) return;
+  if (!it.over && zc * zc + xc * xc < big * big + 1.5 && (it.y || 0) + 2 > camY - 2) return;
   const t = it.tint || NOT;
   let r = it.r || 0, y = it.y || 0;
+  // Lo que la camioneta se lleva de encuentro sale volando.
+  if (it.knock !== undefined) {
+    const k = time - it.knock;
+    if (k > 1.3) {
+      it.gone = true;
+      return;
+    }
+    x += it.kx * k * 9;
+    y += 7 * k - 11 * k * k;
+    z += k * 6;
+    r += it.kx * k * 7;
+  }
   if (it.spin) {
     r = time * it.spin + (it.ph || 0);
     y += Math.sin(time * 2.6 + it.D) * 0.14;
   }
-  put(it.t, it.x, y, z, r, it.sx || it.s || 1, it.sy || it.s || 1, it.sz || it.s || 1, t[0], t[1], t[2], it.flash || 0);
+  if (it.rotV) r += time * it.rotV;
+  let sy = it.sy || it.s || 1, name = it.t;
+  if (it.flick) sy *= 0.82 + 0.26 * Math.sin(time * 9 + it.D) + 0.12 * Math.sin(time * 23 + it.x);
+  // Los que caminan alternan entre dos cuadros.
+  if (it.walk && floor(time * it.walk + it.D) % 2) name = it.t + 'B';
+  put(name, x, y, z, r, it.sx || it.s || 1, sy, it.sz || it.s || 1, t[0], t[1], t[2], it.flash || 0);
 }
 export const signItems = [];
 // ── Letreros ──
@@ -545,14 +569,28 @@ const SIGNS = [
   ['Tienda La Bendición', '#fff3d6', '#e3262f'], ['Comedor Doña Tere', '#ffc91f', '#1a1416'], ['Ceviches El Pelícano', '#12b5b0', '#fff3d6'], ['Shucos El Gordo', '#e3262f', '#ffc91f'],
   ['Pinchazos 24 horas', '#1a1416', '#fff3d6'], ['Agua de coco Q5', '#2bae56', '#fff3d6'], ['Tortillería Lupita', '#ff5d7d', '#fff3d6'], ['Salón Yesenia', '#7a3fb0', '#fff3d6'],
   ['TORTUGARIO', '#2d6b52', '#fff3d6'], ['¡AGUAS!', '#ffc91f', '#e3262f'], ['Lanchas a La Avellana', '#1b62c9', '#fff3d6'], ['Hay tamales', '#fff3d6', '#2d6b52'],
+  ['BIENVENIDOS A TAXISCO', '#1b62c9', '#fff3d6'], ['CAÑAVERALES', '#2d6b52', '#ffc91f'], ['FERIA DE GUAZACAPÁN', '#e3262f', '#ffc91f'], ['TERMINAL DE BUSES', '#12b5b0', '#fff3d6'],
+  ['A la capital', '#ffc91f', '#e3262f'], ['Leche fresca', '#fff3d6', '#1b62c9'], ['Cuidado: ganado', '#ffc91f', '#1a1416'], ['Quema de caña', '#1a1416', '#ffc91f'],
+  ['Puente angosto', '#ffc91f', '#1a1416'], ['Churrascos La Feria', '#e3262f', '#fff3d6'], ['Tiro al blanco', '#1b62c9', '#ffc91f'], ['Algodones', '#ff5d7d', '#fff3d6'],
+  ['Elotes locos', '#2bae56', '#fff3d6'], ['Rueda de Chicago', '#7a3fb0', '#ffc91f'], ['Hoy: jaripeo', '#1a1416', '#ff5d7d'], ['Talabartería Don Chepe', '#6e4726', '#fff3d6'],
+  ['FERIA DE TAXISCO', '#7a3fb0', '#ffc91f'],
+  ['CALZADA ROOSEVELT', '#1f6b3a', '#fff3d6'], ['ANILLO PERIFÉRICO', '#1f6b3a', '#fff3d6'], ['PUENTE EL INCIENSO', '#1f6b3a', '#fff3d6'], ['ZONA 1 · CENTRO', '#1f6b3a', '#fff3d6'],
+  ['El Trébol', '#1f6b3a', '#fff3d6'], ['Shucos El Volcán', '#e3262f', '#ffc91f'], ['Farmacia La Bendición', '#2bae56', '#fff3d6'], ['Pollo Frito Doña Tina', '#ffc91f', '#e3262f'],
+  ['Ferretería El Clavo', '#1b62c9', '#fff3d6'], ['Licuados Mary', '#ff5d7d', '#fff3d6'], ['Taller El Pistón', '#1a1416', '#ffc91f'], ['Hotel Colonial', '#6e4726', '#fff3d6'],
+  ['Café La Sexta', '#2d6b52', '#fff3d6'], ['Respete el semáforo', '#e3262f', '#fff3d6'], ['Parada de bus', '#1b62c9', '#fff3d6'], ['Hombres trabajando', '#ff7a1a', '#1a1416'],
+  ['Pinchazos Don Memo', '#1a1416', '#fff3d6'], ['Panadería La Espiga', '#fff3d6', '#6e4726'], ['Shucos', '#e3262f', '#fff3d6'], ['Cuidado: túmulo', '#ffc91f', '#1a1416'],
 ];
+// Proporción con la que se muestra cada letrero. La fila del atlas es de 16:1, así que la letra
+// se dibuja estirada para que en el letrero se vea con su forma real.
+const SIGN_ASPECT = {'¡AGUAS!': 3.3, 'EL MANGLAR': 8.4, 'MUELLE': 8.3, 'Lanchas a La Avellana': 8.2, 'BIENVENIDOS AL PUEBLO': 8.4, 'CAÑAVERALES': 8.4, 'FERIA DE GUAZACAPÁN': 8.4, 'TERMINAL DE BUSES': 8.4, 'BIENVENIDOS A TAXISCO': 8.4, 'FERIA DE TAXISCO': 8.4,
+  'CALZADA ROOSEVELT': 6.4, 'ANILLO PERIFÉRICO': 6.4, 'PUENTE EL INCIENSO': 6.4, 'ZONA 1 · CENTRO': 6.4, 'El Trébol': 4.6, 'Respete el semáforo': 6.2, 'Shucos': 3.4};
 export function drawSignAtlas() {
   const cv = signTex ? signTex.image : document.createElement('canvas');
+  const rows = SIGNS.length, h = 64;
   cv.width = 1024;
-  cv.height = 1024;
+  cv.height = rows * h;
   const x = cv.getContext('2d');
-  x.clearRect(0, 0, 1024, 1024);
-  const rows = 16, h = 1024 / rows;
+  x.clearRect(0, 0, cv.width, cv.height);
   SIGNS.forEach(([t, bg, fg], i) => {
     const y = i * h;
     x.fillStyle = bg;
@@ -563,14 +601,19 @@ export function drawSignAtlas() {
     x.fillStyle = fg;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    let px = 42;
+    const stretch = 16 / (SIGN_ASPECT[t] || 6), room = 930 / stretch;
+    let px = 40;
     x.font = '400 ' + px + 'px "Shrikhand","Arial Black",Impact,sans-serif';
     const w = x.measureText(t).width;
-    if (w > 960) {
-      px = (px * 960) / w;
+    if (w > room) {
+      px = (px * room) / w;
       x.font = '400 ' + px + 'px "Shrikhand","Arial Black",Impact,sans-serif';
     }
-    x.fillText(t, 512, y + h / 2 + 2);
+    x.save();
+    x.translate(512, y + h / 2 + 2);
+    x.scale(stretch, 1);
+    x.fillText(t, 0, 0);
+    x.restore();
     signMap[t] = i;
   });
   if (!signTex) {

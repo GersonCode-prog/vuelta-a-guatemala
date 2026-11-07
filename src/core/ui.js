@@ -2,6 +2,7 @@
 import anime from 'animejs';
 import {$, COARSE, clamp, rnd, min, clockText} from './util.js';
 import {Audio} from './audio.js';
+import {Voice} from './voice.js';
 
 export const UI = {
   shown: {},
@@ -47,7 +48,7 @@ export const UI = {
     $('hudForce').style.transform = 'scaleX(' + clamp(G.force) + ')';
     const prog = clamp(G.dist / lv.length);
     $('hudMark').style.left = (prog * 100).toFixed(2) + '%';
-    const chip = G.hard ? 'Arena dura' : G.soft ? 'Arena suelta' : G.inWater ? 'En el agua' : '';
+    const chip = G.chip;
     if (chip !== s.chip) {
       s.chip = chip;
       const el = $('hudChip');
@@ -56,16 +57,30 @@ export const UI = {
       el.dataset.kind = G.hard ? 'good' : 'bad';
     }
   },
-  fan: null,
+  // Rótulos que cambian con el nivel: marcas de etapa, nombre del jefe y de la barra de fuerza.
+  setLevel(MT, LV) {
+    $('hudForceLabel').textContent = MT.forceLabel;
+    $('bossName').textContent = MT.boss.name;
+    const ticks = document.querySelectorAll('#hudTrack i');
+    ticks.forEach((t, i) => (t.style.left = ((LV.stageBounds[i + 1] / LV.length) * 100).toFixed(1) + '%'));
+    const tc = $('tcPedal');
+    if (tc) tc.setAttribute('aria-label', MT.sprintWord);
+  },
   call(text, tier, x, y) {
     const L = $('fxCalls');
     const old = L.querySelectorAll('.call');
     if (old.length > 5) old[0].remove();
-    // Dos gritos seguidos no se tapan: el segundo sube un renglón.
+    // Cada grito ocupa un renglón mientras se lee; el siguiente busca uno libre.
+    // Si están los tres ocupados, los gritos chiquitos (¡Uy!, ¡Cerquita!) se omiten.
     const now = performance.now();
-    this.callRow = now - (this.callLast || 0) < 420 ? ((this.callRow || 0) + 1) % 3 : 0;
-    this.callLast = now;
-    y -= this.callRow * clamp(innerHeight * 0.07, 34, 58);
+    const rows = this.callRows || (this.callRows = [0, 0, 0]);
+    let row = rows.findIndex((t) => now >= t);
+    if (row < 0) {
+      if (tier < 2) return;
+      row = rows.indexOf(Math.min(...rows));
+    }
+    rows[row] = now + (tier > 1 ? 650 : 470);
+    y -= row * clamp(innerHeight * 0.07, 34, 58);
     const el = document.createElement('div');
     el.className = 'call call-' + tier;
     el.textContent = text;
@@ -107,11 +122,24 @@ export const UI = {
     $('phoneText').textContent = '';
     anime.remove(p);
     anime({targets: p, translateX: [-40, 0], opacity: [0, 1], rotate: [-3, -1], duration: 300, easing: 'easeOutBack'});
-    const o = {n: 0};
-    anime({targets: o, n: text.length, duration: min(1300, text.length * 17), easing: 'linear',
-      update: () => { if (tok === this.tok) $('phoneText').textContent = text.slice(0, o.n | 0); },
-      complete: () => { if (tok === this.tok) $('phoneText').textContent = text; }});
     Audio.phone();
+    const o = {n: 0}, v = Voice.speak(from, text, {delay: 0.3});
+    const show = (t) => { if (tok === this.tok) $('phoneText').textContent = t; };
+    if (v) {
+      // Con voz, el texto sale al ritmo de las sílabas.
+      const mk = v.marks;
+      let i = 0;
+      anime({targets: o, n: v.dur, duration: v.dur * 1000, easing: 'linear',
+        update: () => {
+          while (i < mk.length && mk[i][0] <= o.n) i++;
+          show(i ? text.slice(0, mk[i - 1][1]) : '');
+        },
+        complete: () => show(text)});
+    } else {
+      anime({targets: o, n: text.length, duration: min(1300, text.length * 17), easing: 'linear',
+        update: () => show(text.slice(0, o.n | 0)),
+        complete: () => show(text)});
+    }
   },
   phoneHide() {
     const tok = this.tok, p = $('phone');
@@ -123,7 +151,7 @@ export const UI = {
     const kids = s.querySelectorAll('[data-in]');
     anime.remove(kids);
     anime({targets: kids, translateY: [24, 0], opacity: [0, 1], delay: anime.stagger(65, {start: 40}), duration: 560, easing: 'easeOutExpo'});
-    const f = s.querySelector('[data-focus]');
+    const f = s.querySelector('[data-focus]:not([hidden])');
     if (f && !COARSE) f.focus({preventScroll: true});
   },
   hideScreen(id, cb) {
@@ -173,6 +201,17 @@ export const UI = {
   cutOut() {
     anime({targets: '#cutText', translateX: '-70vw', opacity: 0, duration: 150, easing: 'easeInExpo', complete: () => ($('cutLayer').hidden = true)});
     anime({targets: '#cutSub', opacity: 0, duration: 110, easing: 'linear'});
+  },
+  // Boleta de la PMT: entra de lado, sella y se va.
+  ticket(q) {
+    const el = $('ticket');
+    $('ticketQ').textContent = q > 0 ? '−Q' + q + ' y −4 s' : '−4 s';
+    el.hidden = false;
+    anime.remove([el, '#ticketStamp']);
+    anime.timeline({targets: el, easing: 'easeOutExpo', complete: () => (el.hidden = true)})
+      .add({translateX: ['120%', '0%'], rotate: [8, -4], opacity: [0, 1], duration: 300})
+      .add({translateX: '130%', opacity: 0, duration: 320, delay: 1900, easing: 'easeInExpo'});
+    anime({targets: '#ticketStamp', scale: [2.6, 1], opacity: [0, 1], rotate: [-30, -14], duration: 260, delay: 240, easing: 'easeOutBack'});
   },
   toast(t) {
     const el = $('toast');

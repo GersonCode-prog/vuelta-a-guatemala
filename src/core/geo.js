@@ -102,6 +102,34 @@ export class GeoB {
     });
     return this.loft(rings, col, glow);
   }
+  // Hoja ligera de dos caras: tres tramos sin grosor. Para follaje que se dibuja por cientos.
+  leaf(pts, wAxis, width, col) {
+    const n = pts.length, wa = nrm(wAxis), make = (flip) => {
+      const base = this.n;
+      for (let k = 0; k < n; k++) {
+        const c = pts[k], w = width * (k === n - 1 ? 0.04 : k === 0 ? 0.5 : 1);
+        const prev = pts[Math.max(k - 1, 0)], next = pts[Math.min(k + 1, n - 1)];
+        const up = nrm(cross(sub(next, prev), wa)), off = [up[0] * 0.001 * flip, up[1] * 0.001 * flip, up[2] * 0.001 * flip];
+        this.vert([c[0] - wa[0] * w + off[0], c[1] - wa[1] * w + off[1], c[2] - wa[2] * w + off[2]], col);
+        this.vert([c[0] + wa[0] * w + off[0], c[1] + wa[1] * w + off[1], c[2] + wa[2] * w + off[2]], col);
+      }
+      for (let k = 0; k < n - 1; k++) {
+        const a = base + k * 2, b = a + 1, c = a + 2, d = a + 3;
+        if (flip > 0) this.i.push(a, b, d, a, d, c);
+        else this.i.push(a, d, b, a, c, d);
+      }
+    };
+    make(1);
+    make(-1);
+    return this;
+  }
+  // Aro en el plano YZ a la altura x dada.
+  hoopAt(x, R, r, col, seg = 48, n = 6) {
+    const base = this.n;
+    this.hoop(0, 0, R, r, col, seg, n);
+    for (let j = base; j < this.n; j++) this.p[j * 3] += x;
+    return this;
+  }
   // Aro cerrado alrededor del eje X, sin costura.
   hoop(cy, cz, R, r, col, seg = 48, n = 7, glow = 0) {
     const base = this.n;
@@ -185,6 +213,14 @@ export class GeoB {
     g.setAttribute('aFlat', new T.Float32BufferAttribute(this.f, 1));
     g.setIndex(this.i);
     g.computeVertexNormals();
+    if (this.painted) {
+      // Fondo pintado: sin luz propia, todas las caras se ven igual.
+      const n = g.attributes.normal, f = g.attributes.aFlat;
+      for (let i = 0; i < n.count; i++) {
+        n.setXYZ(i, 0, 1, 0);
+        f.setX(i, -1);
+      }
+    }
     return g;
   }
 }

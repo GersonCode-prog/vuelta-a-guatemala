@@ -11,11 +11,13 @@ Un repartidor cruza Guatemala con un paquete urgente. Don Beto llama cada cinco 
 
 ![Partida de Vuelta a Guatemala](docs/img/juego.gif)
 
-Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, palmeras, casas, perro) se construye con código, y la música de marimba se genera en el navegador. Los modelos y la música no vienen de archivos 3D ni de audio pregrabado.
+Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, caballo, camioneta, ganado, ferias, edificios y semáforos) se construye con código, y la música de marimba se genera en el navegador. Los personajes también tienen voz: cuando Don Beto, Mamá o Don Chus llaman, balbucean por teléfono con su propio tono, siguiendo las sílabas de lo que dicen, como en los juegos de antes. Los modelos, la música y las voces no vienen de archivos 3D ni de audio pregrabado. Las voces se pueden apagar con el botón **Voces**.
 
 ## Monterrico, la primera parada
 
 ![Pantalla de título](docs/img/titulo.jpg)
+
+Pedaleás por la arena negra, el manglar y el pueblo. En la playa sopla el viento del mar: cuando aparece el aviso, pedaleá contra él o te saca a la arena suelta, donde la bici no avanza.
 
 | La playa | El manglar |
 |---|---|
@@ -27,18 +29,92 @@ Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, palm
 
 ![Llegada a la última lancha](docs/img/final.jpg)
 
+## Taxisco y Guazacapán, la segunda parada
+
+La carretera está trancada por la zafra, así que Don Chepe te presta a Turbo, un caballo que se llama así porque una vez corrió. Arrancás de madrugada en la feria de Taxisco, entre ruedas de Chicago, carrusel, sillas voladoras y cohetes de alborada. Se puede arrancar aquí desde el título, o llegar desde Monterrico con tus propinas.
+
+![Partida a caballo](docs/img/taxisco.gif)
+
+| La feria de Taxisco | Los potreros |
+|---|---|
+| ![Feria de madrugada con puestos, banderines y una rueda de Chicago](docs/img/taxisco-feria.jpg) | ![Camino de tierra entre conacastes y una cerca atravesada](docs/img/potreros.jpg) |
+
+| Cañaverales y río | El puente angosto |
+|---|---|
+| ![Camino entre dos cañaverales verdes](docs/img/canal.jpg) | ![Puente de madera sobre el río con cajas en el camino](docs/img/rio.jpg) |
+
+| La quema | La feria de Guazacapán |
+|---|---|
+| ![Cañaveral con humo y fuego bajo un cielo naranja](docs/img/quema.jpg) | ![Calle de la feria con puestos, banderines y un gigante](docs/img/feria.jpg) |
+
+![Rótulo de entrada del toro Cariñoso](docs/img/toro-corte.jpg)
+
+![Turbo se encabrita junto a la última camioneta a la capital](docs/img/camioneta.jpg)
+
+## Ciudad de Guatemala, la tercera parada
+
+Don Chus, el chofer, se baja a comprar un shuco y te deja el timón de La Chusita, su camioneta roja. Hay que cruzar la Calzada Roosevelt, el Periférico y la zona 1 de noche. En los semáforos se frena hasta parar: si te pasás en rojo, te sigue la PMT, y si te alcanza te multa. Acelerando la podés dejar atrás. Además, La Chusita está desalineada y se jala a la derecha, y en las calles hay alcantarillas sin tapadera, de tres en tres: saltalas o cambiate de carril.
+
+![Partida en camioneta por la capital](docs/img/capital.gif)
+
+| Calzada Roosevelt | Semáforo en rojo |
+|---|---|
+| ![Avenida con camellón de jacarandas y edificios](docs/img/capital-roosevelt.jpg) | ![La camioneta parada frente al semáforo en rojo y el paso de cebra](docs/img/capital-semaforo.jpg) |
+
+| La PMT te sigue | El Periférico |
+|---|---|
+| ![Moto de la PMT pegada a la camioneta después de pasarse en rojo](docs/img/capital-pmt.jpg) | ![Periférico al atardecer con casitas en las laderas](docs/img/capital-periferico.jpg) |
+
+| Puente El Incienso | La zona 1 de noche |
+|---|---|
+| ![Puente con barandas sobre el barranco](docs/img/capital-puente.jpg) | ![Calle de casas coloniales iluminadas](docs/img/capital-zona1.jpg) |
+
+| El Rey del Camino, el jefe | Te cierra el paso |
+|---|---|
+| ![Rótulo de entrada de la camioneta rival](docs/img/capital-rey.jpg) | ![La camioneta rival se cruza en el carril marcado en rojo](docs/img/capital-rey-cierre.jpg) |
+
+![Don Chus espera con su shuco frente al Palacio](docs/img/capital-final.jpg)
+
 ## Estado
 
 | Parada | Vehículo | Estado |
 |---|---|---|
 | Monterrico | Bicicleta | Se puede jugar |
-| Taxisco y Guazacapán | Caballo | Pendiente |
-| Ciudad de Guatemala | Camioneta | Pendiente |
+| Taxisco y Guazacapán | Caballo | Se puede jugar |
+| Ciudad de Guatemala | Camioneta | Se puede jugar |
 | Antigua | Tuc-tuc | Pendiente |
 | Atitlán | Lancha | Pendiente |
 | Xela | Moto | Pendiente |
 
-Monterrico tiene tres etapas (la playa, el manglar y el pueblo), una tienda entre etapas, puntos de guardado y un jefe: Terremoto, el chucho de Doña Tere.
+Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT.
+
+En Monterrico y en la capital también hay jalones: el viento del mar y la camioneta desalineada. Si los corregís sin chocar ni salirte del camino, te ganás una propina. Turbo, en cambio, va siempre para donde lo guiás.
+
+Turbo no se maneja como la bicicleta: pesa más, se cansa cuando lo apurás y brinca más alto. Va más rápido por la tierra que por el pasto, se atasca en el lodo y se asusta con los cohetillos.
+
+## Récords
+
+Al terminar una parada podés guardar tu nombre, y el botón **Récords** del título muestra los diez mejores de cada parada a cualquiera que entre. Gana el de más estrellas; si empatan, al que le sobró más tiempo.
+
+Los récords se guardan en [Supabase](https://supabase.com). La tabla solo deja leer y agregar: nadie puede editar ni borrar desde el juego. Si hacés tu propia copia, creá la tabla con este SQL y poné tu URL y tu llave publicable en `src/core/records.js`:
+
+```sql
+create table public.records (
+  id bigint generated always as identity primary key,
+  creado timestamptz not null default now(),
+  nivel text not null check (nivel in ('monterrico', 'taxisco', 'capital')),
+  nombre text not null check (char_length(nombre) between 3 and 12),
+  estrellas smallint not null check (estrellas between 0 and 5),
+  tiempo real not null check (tiempo between 0 and 200),
+  propinas int not null check (propinas between 0 and 3000),
+  paquete smallint not null check (paquete between 0 and 100)
+);
+create index records_top on public.records (nivel, estrellas desc, tiempo desc);
+alter table public.records enable row level security;
+create policy "Todos pueden ver los records" on public.records for select to anon using (true);
+create policy "Todos pueden guardar un record" on public.records for insert to anon with check (true);
+grant select, insert on public.records to anon;
+```
 
 ## Controles
 
@@ -47,9 +123,9 @@ Monterrico tiene tres etapas (la playa, el manglar y el pueblo), una tienda entr
 | Moverse | Flechas, A y D, o el ratón | Arrastrar el dedo |
 | Saltar | Espacio o clic izquierdo | Botón Saltar |
 | Pirueta | Saltar otra vez en el aire | Saltar otra vez en el aire |
-| Pedalear duro | ↑ o W | Botón Dale |
-| Frenar | ↓, S o clic derecho | Botón Freno |
-| Timbre | B | |
+| Ir más rápido | ↑ o W | Botón Dale |
+| Frenar (la camioneta para del todo) | ↓, S o clic derecho | Botón Freno |
+| Timbre, relincho o pito | B | |
 | Pausa | P o Esc | Botón de pausa |
 | Silencio | M | |
 
@@ -80,17 +156,18 @@ El proyecto ya trae el flujo en `.github/workflows/deploy.yml`:
 
 ```text
 src/
-  core/      utilidades, sombreadores, render, audio e interfaz
-  world/     suelo, objetos del mundo y efectos
-  vehicles/  bicicleta, repartidor y perro
-  levels/    nivel de Monterrico: pista, obstáculos, llamadas y paleta
-  game.js    estados, física, choques, jefe y controles
+  core/      utilidades, sombreadores, render, audio, voces, interfaz y récords
+  world/     suelo, objetos del mundo, efectos, semáforos y la PMT
+  vehicles/  repartidor, bicicleta, caballo y camioneta
+  bosses/    los jefes: Terremoto, Cariñoso y El Rey del Camino
+  levels/    cada parada: pista, obstáculos, llamadas y paleta
+  game.js    estados, física, choques y controles
   main.js    punto de entrada
   styles.css estilos de la interfaz
 docs/img/    imágenes de este README
 ```
 
-Cada nivel nuevo es un archivo en `levels/` y cada vehículo uno en `vehicles/`.
+Cada nivel nuevo es un archivo en `levels/`, cada vehículo uno en `vehicles/` y cada jefe uno en `bosses/`.
 
 ## Tecnologías
 

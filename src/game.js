@@ -1,30 +1,44 @@
 // El juego: estados, física del vehículo, choques, jefe y flujo del nivel.
 import * as T from 'three';
 import {PI, abs, sin, cos, min, max, floor, ceil, sqrt, exp, clamp, lerp, damp, sstep, rnd, pick, store, TEST, COARSE, REDUCED, $} from './core/util.js';
-import {initGfx, resize, renderFrame, adaptQuality, U, P, VIEW, CAM_Z, camera, cutCam, scene, renderer, celUni} from './core/gfx.js';
-import {VS_MARK, FS_MARK} from './core/shaders.js';
+import {initGfx, resize, renderFrame, adaptQuality, U, P, VIEW, camera, cutCam, scene, renderer} from './core/gfx.js';
 import {Audio} from './core/audio.js';
+import {Voice} from './core/voice.js';
 import {UI, anime} from './core/ui.js';
 import {buildProps, syncProps, dropShadow, setShadowLen, drawSignAtlas} from './world/props.js';
-import {buildGround, setTrackTexture} from './world/ground.js';
+import {buildGround, setGround, setTrackTexture} from './world/ground.js';
 import {buildFx, fx, tick, burst, updateFx, syncFx, clearFx, clearTicks} from './world/fx.js';
-import {buildBike, updateBike, resetScarf, kickPackage, BIKE, buildDog, updateDog, DOG, drawLabel} from './vehicles/bicycle.js';
-import {buildLevel, META, SKYKEYS, S1, S2, S3, LEN} from './levels/monterrico.js';
+import {drawLabel} from './vehicles/rider.js';
+import {BIKE_V} from './vehicles/bicycle.js';
+import {HORSE_V} from './vehicles/horse.js';
+import {BUS_V, exhaustTip} from './vehicles/bus.js';
+import {dogBoss} from './bosses/dog.js';
+import {bullBoss} from './bosses/bull.js';
+import {rivalBoss} from './bosses/rival.js';
+import {updateTraffic, resetTraffic, lightAhead, startCop, copOff, COP} from './world/traffic.js';
+import {LEVELS, ORDER} from './levels/index.js';
+import {fetchTop, saveRecord, checkName, plausible} from './core/records.js';
 
 const WET_W = 3.35;
-export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, steer: 0, clock: 80, pkg: 100, q: 0, racha: 1, rachaT: 0, force: 1, stage: 0, hits: 0, turtles: 0, nears: 0, tricks: 0, encargos: 0, iframes: 0, shake: 0, lines: 0, ts: 1, hitstop: 0, callT: 0, phT: 0, phGap: 1, air: false, trick: 0, trickOn: false, trickCool: 0, sink: 0, spin: 0, hard: false, soft: false, inWater: false, camBlend: 1, camX: 0, wet: 0, fT: 0, impactT: 0, impactInv: false, impactCool: 0, up: {frenos: 0, carton: 0, cadena: 0}, auto: false, god: false, fov: 60, cutT: 0, flashT: 0, onRamp: false, attract: 0, sprint: false, brake: false, deadReason: '', snap: null, bestRun: false, time: 0};
+export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, steer: 0, clock: 80, pkg: 100, q: 0, racha: 1, rachaT: 0, force: 1, stage: 0, hits: 0, turtles: 0, nears: 0, spook: 0, mudT: 0, rear: 0, level: 'monterrico', tricks: 0, encargos: 0, iframes: 0, shake: 0, lines: 0, ts: 1, hitstop: 0, callT: 0, phT: 0, phGap: 1, air: false, trick: 0, trickOn: false, trickCool: 0, sink: 0, spin: 0, hard: false, soft: false, inWater: false, camBlend: 1, camX: 0, wet: 0, fT: 0, impactT: 0, impactInv: false, impactCool: 0, up: {frenos: 0, carton: 0, cadena: 0}, auto: false, god: false, fov: 60, cutT: 0, flashT: 0, onRamp: false, attract: 0, sprint: false, brake: false, deadReason: '', snap: null, bestRun: false, time: 0};
 export const IN = {left: false, right: false, up: false, down: false, jump: 0, stick: 0, stickOn: false, mouse: false, touchId: null, startX: 0, pedalBtn: false, brakeBtn: false};
 const SET = {flash: store.get('flash', !REDUCED)};
-let LV = null;
-const BOSS = {on: false, mode: 'off', side: 1, z: 0.7, x: 0, x0: 0, xEnd: 0, t: 0, next: 3, hunger: 0, aim: 0, eatT: 0, hitDone: false};
-let markMesh, markU;
+// El juego no sabe de bicicletas ni caballos: habla con el vehículo y el jefe del nivel actual.
+const VEHICLES = {bike: BIKE_V, horse: HORSE_V, bus: BUS_V};
+const BOSSES = {dog: dogBoss, bull: bullBoss, rival: rivalBoss};
+let LV = null, DEF = null, MT = null, VEH = BIKE_V, BOSSK = dogBoss, pal = null, currentLevel = null;
+const BOSS = {on: false, mode: 'off', side: 1, z: 0.7, x: 0, x0: 0, xEnd: 0, t: 0, next: 3, count: 0, aim: 0, eatT: 0, hitDone: false};
 
 // ── Pista ──
 function trackAt(D) {
   const tr = LV.track, f = clamp(D, 0, LV.len - 2) / 2, i = floor(f), u = f - i, o = i * 4;
-  return {
-    cx: lerp(tr[o], tr[o + 4], u), hw: lerp(tr[o + 1], tr[o + 5], u), kind: u < 0.5 ? tr[o + 2] : tr[o + 6], base: lerp(tr[o + 3], tr[o + 7], u),
-  };
+  let kind = u < 0.5 ? tr[o + 2] : tr[o + 6], base = lerp(tr[o + 3], tr[o + 7], u);
+  // En el campo, -1 en el canal del río marca una calle de pueblo (la feria de Taxisco).
+  if (MT.ground === 'farm' && base < -0.5) {
+    kind = 3;
+    base = 0;
+  }
+  return {cx: lerp(tr[o], tr[o + 4], u), hw: lerp(tr[o + 1], tr[o + 5], u), kind, base: max(base, MT.ground === 'farm' ? 0 : -1e9)};
 }
 function shoreAt(D, base, t) {
   let s = base + 0.6 * sin(t * 0.7 + D * 0.05) + 0.35 * sin(t * 1.3 - D * 0.11);
@@ -35,16 +49,26 @@ function shoreAt(D, base, t) {
 }
 // ── Paleta según la hora ──
 const palKeys = ['skyTop', 'skyMid', 'skyLow', 'sunDisc', 'sunCol', 'shade', 'rim', 'fog', 'cloudL', 'cloudS', 'hill', 'hill2', 'sandA', 'sandB', 'wet', 'waterA', 'waterB', 'foam', 'plank', 'street', 'grass'];
-const palCols = SKYKEYS.map((k) => palKeys.map((n) => new T.Color().setStyle(k[n])));
+const palCache = {};
+function palOf(id) {
+  if (!palCache[id]) {
+    const keys = LEVELS[id].SKYKEYS, last = {};
+    // Cada clave hereda lo que no define de la anterior.
+    const full = keys.map((k) => Object.assign(last, k) && Object.assign({}, last));
+    palCache[id] = {keys: full, cols: full.map((k) => palKeys.map((n) => new T.Color().setStyle(k[n])))};
+  }
+  return palCache[id];
+}
 const uName = (n) => 'u' + n[0].toUpperCase() + n.slice(1);
 function updatePalette(D) {
+  const K = pal.keys, CL = pal.cols;
   let i = 0;
-  while (i < SKYKEYS.length - 2 && D > SKYKEYS[i + 1].D) i++;
-  const A = SKYKEYS[i], B = SKYKEYS[i + 1], t = sstep(A.D, B.D, D);
+  while (i < K.length - 2 && D > K[i + 1].D) i++;
+  const A = K[i], B = K[i + 1], t = sstep(A.D, B.D, D);
   palKeys.forEach((n, j) => {
-    U[uName(n)].value.copy(palCols[i][j]).lerp(palCols[i + 1][j], t);
+    U[uName(n)].value.copy(CL[i][j]).lerp(CL[i + 1][j], t);
   });
-  const gain = lerp(1.18, 0.92, clamp(D / 4400));
+  const gain = lerp(MT.palGain[0], MT.palGain[1], clamp(D / MT.palGain[2]));
   U.uSunCol.value.multiplyScalar(gain);
   const el = lerp(A.sunEl, B.sunEl, t), nig = lerp(A.night, B.night, t);
   U.uNight.value = nig;
@@ -74,39 +98,134 @@ function shout(text, tier, h = 2.4) {
   const p = screenOf(G.x, G.y + h, 0);
   UI.call(text, tier, p.x, p.y - 26);
 }
+// El repartidor también lo dice en voz alta. 'hard' corta lo que estaba diciendo (los golpes).
+function say(text, hard) {
+  if (!hard && (G.sayT > 0 || Voice.busy('shout'))) return;
+  G.sayT = 0.45;
+  Voice.speak('Repartidor', text, {ch: 'shout', chain: 'direct', maxDur: 0.95, gain: 1.3});
+}
 const col = (u) => [U[u].value.r, U[u].value.g, U[u].value.b];
 function damage(n) {
   const k = 1 - G.up.carton * 0.3;
   G.pkg = max(0, G.pkg - n * k);
-  kickPackage(1.4 + n * 0.15);
+  VEH.kick(1.4 + n * 0.15);
   if (G.pkg <= 0 && !G.god) fail('pkg');
 }
 function crash(it) {
-  if (G.iframes > 0 || G.god && !it.soft && false) return;
+  if (G.iframes > 0) return;
+  if (it.trap === 'cohete') {
+    it.gone = true;
+    G.spook = 1.15;
+    G.iframes = 0.5;
+    G.speed *= 0.78;
+    G.racha = 1;
+    G.shake = 0.7;
+    shout('¡Cohetillos!', 3);
+    say('¡Cohetillos!', true);
+    Audio.cohete();
+    Audio.neigh();
+    for (let i = 0; i < 16; i++) fx(3, it.x + rnd(-1.6, 1.6), 0.2, 0, rnd(0.04, 0.09), 0.34, [3, 1.8, 0.5], {add: 1, vx: rnd(-5, 5), vy: rnd(2, 7), vz: rnd(-3, 5), grav: 16, world: 0.6});
+    fx(2, it.x, 0.5, 0, 1.6, 0.16, [3, 2.4, 1.3], {world: 0.6});
+    UI.floatTime('−' + ceil(it.dmg * (1 - G.up.carton * 0.3)) + '% paquete', false);
+    damage(it.dmg);
+    return;
+  }
+  if (it.bump) {
+    G.vy = 4.8;
+    G.y = 0.02;
+    G.air = true;
+    G.shake = 0.6;
+    G.iframes = 0.35;
+    G.speed *= 0.86;
+    VEH.kick(2.2);
+    const w = it.t.startsWith('alcantarilla') ? '¡Alcantarilla!' : '¡Hoyo!';
+    shout(w, 3);
+    say(w, true);
+    Audio.land(1);
+    UI.floatTime('−' + ceil(it.dmg * (1 - G.up.carton * 0.3)) + '% paquete', false);
+    damage(it.dmg);
+    return;
+  }
   if (it.soft) {
     G.turtles++;
-    it.gone = true;
-    G.speed *= 0.6;
+    G.speed *= MT.soft.keep ? 0.5 : 0.6;
     G.racha = 1;
-    shout('¡Las tortuguitas!', 3);
-    Audio.land(1);
+    shout(MT.soft.shout, 3);
+    say(MT.soft.shout, true);
+    if (MT.soft.keep) {
+      G.iframes = 0.7;
+      G.shake = 0.5;
+      it.flash = 1;
+      Audio.moo();
+      Audio.land(1);
+    } else {
+      it.gone = true;
+      Audio.land(1);
+    }
     burst(it.x, 0.2, 0, 8, 5, 0.5, 0.14, col('uSandB'), {world: 1});
     return;
   }
   it.flash = 1;
   G.hits++;
+  G.lastHit = it.t + (it.kind ? '/' + it.kind : '');
   G.iframes = 1;
   G.hitstop = 0.06;
   G.shake = 1;
   G.racha = 1;
   G.speed *= 0.36;
   impact(0.06, false);
-  shout(pick(['¡Qué clavo!', '¡Púchica, el paquete!', '¡Aaay!']), 3);
+  const ay = pick(['¡Qué clavo!', '¡Púchica, el paquete!', '¡Aaay!']);
+  shout(ay, 3);
+  say(ay, true);
   Audio.hit();
   fx(2, G.x, 1.1, 0, 2, 0.22, [3, 2.6, 1.8], {world: 0});
   burst(G.x, 1, 0, 14, 8, 0.6, 0.14, [1, 0.84, 0.5], {world: 0.4, add: 0});
   UI.floatTime('−' + ceil(it.dmg * (1 - G.up.carton * 0.3)) + '% paquete', false);
   damage(it.dmg);
+  // La camioneta manda a volar lo pequeño; lo grande la empuja a un lado.
+  if (MT.vehicle === 'bus') {
+    if (it.h < 3) {
+      it.knock = U.uTime.value;
+      it.kx = it.x >= G.x ? 1 : -1;
+    } else G.x = it.x + (Math.sign(G.x - it.x) || 1) * (it.w + VEH.phys.halfW + 0.15);
+  }
+}
+// ── Semáforos y la PMT ──
+function onCross(L) {
+  if (L.phase === 'r' && G.speed > 6) {
+    G.racha = 1;
+    shout('¡Te pasaste en rojo!', 3);
+    impact(0.04, true);
+    startCop(api);
+    if (!G.toldCop) {
+      G.toldCop = true;
+      queuePhone('Don Beto', '¡Te vio la PMT! Acelerá para perderla, o te multan.');
+    }
+  } else if (L.phase === 'y') {
+    shout('¡En amarillo!', 1);
+    G.q += 2;
+  }
+}
+function onGreen() {
+  G.q += 3;
+  G.racha = min(9, G.racha + 1);
+  G.rachaT = 6;
+  shout('¡Verde! Bien parado', 1);
+}
+function fine() {
+  G.turtles++;
+  const q = min(25, floor(G.q));
+  G.q -= q;
+  G.clock -= 4;
+  G.speed *= 0.4;
+  G.shake = 0.6;
+  G.racha = 1;
+  UI.floatTime('−4 s', false);
+  UI.ticket(q);
+  shout('¡Oríllese!', 3);
+  Voice.speak('PMT', '¡Oríllese!', {ch: 'shout', chain: 'mega', maxDur: 0.8});
+  Audio.stamp();
+  if (G.turtles === 1) queuePhone('Don Beto', '¿Una multa? La de verdad es de doscientos quetzales. Agradecé que te la rebajaron.');
 }
 function near(it, gap) {
   const c = clamp(1 - gap / 0.85), tier = c < 0.4 ? 0 : c < 0.78 ? 1 : 2;
@@ -118,7 +237,9 @@ function near(it, gap) {
   G.clock += bonus;
   const dx = it.x - G.x;
   if (tier > 0 || G.callT <= 0) {
-    shout(tier === 0 ? '¡Cerquita!' : tier === 1 ? pick(['¡Púchica!', '¡Uy!']) : pick(['¡A la gran!', '¡Cabal!']), tier);
+    const w = tier === 0 ? '¡Cerquita!' : tier === 1 ? pick(['¡Púchica!', '¡Uy!']) : pick(['¡A la gran!', '¡Cabal!']);
+    shout(w, tier);
+    if (tier === 2 && !Voice.busy('call')) say(w);
     G.callT = 0.35;
   }
   Audio.near(c, dx / 6);
@@ -154,16 +275,31 @@ function pickup(it) {
     UI.floatTime('+18% paquete', true);
     shout('¡Cinta de la buena!', 1);
     Audio.pickup();
+  } else if (it.pick === 'elote') {
+    G.clock += 5;
+    G.force = 1;
+    G.tired = 0;
+    UI.floatTime('+5 s', true);
+    shout('¡Elote para Turbo!', 1);
+    Audio.pickup();
+    burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [1, 0.85, 0.3], {add: 0});
+  } else if (it.pick === 'pinata') {
+    G.q += 8;
+    G.racha = min(9, G.racha + 1);
+    G.rachaT = 6;
+    shout('¡Piñata! +Q8', 2);
+    Audio.pickup();
+    const cs = [[1, 0.2, 0.3], [1, 0.8, 0.1], [0.1, 0.8, 0.75], [1, 0.4, 0.6], [0.3, 0.8, 0.4]];
+    for (let i = 0; i < 24; i++) fx(3, it.x + rnd(-0.4, 0.4), it.y, z, rnd(0.05, 0.13), 0.9, pick(cs), {add: 0, vx: rnd(-5, 5), vy: rnd(-1, 6), vz: rnd(-3, 3), grav: 13, world: 1});
+  } else if (it.pick === 'shuco') {
+    G.clock += 5;
+    UI.floatTime('+5 s', true);
+    shout('¡Un shuco!', 1);
+    Audio.pickup();
+    burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [1, 0.7, 0.35], {add: 0});
   } else if (it.pick === 'tortilla') {
     Audio.pickup();
-    if (BOSS.on && BOSS.mode !== 'full') {
-      BOSS.hunger++;
-      UI.boss(true, BOSS.hunger);
-      shout(BOSS.hunger >= 3 ? '¡Tomá, chucho!' : '¡Ahí va la tortilla!', 2);
-      BOSS.mode = 'eat';
-      BOSS.eatT = 4;
-      burst(it.x, 1, 3, 8, 6, 0.5, 0.15, [1, 0.8, 0.4], {add: 0, world: 0.8});
-    }
+    if (BOSSK.onPick) BOSSK.onPick(api, it);
   }
 }
 // ── Estados de falla y entrega ──
@@ -172,6 +308,8 @@ function fail(reason) {
   G.state = 'failing';
   G.deadReason = reason;
   G.fT = 1.1;
+  Audio.siren(false);
+  Voice.stop('call');
   Audio.fail();
   Audio.fadeMusic(1.2);
 }
@@ -180,26 +318,56 @@ function showFail() {
   $('app').dataset.state = 'menu';
   UI.hideHud();
   $('fxCalls').innerHTML = '';
-  markMesh.visible = false;
+  BOSSK.hide();
   const t = G.deadReason === 'pkg' ? 'El paquete quedó hecho pedazos' : 'Se te pasó la hora';
   $('failTitle').textContent = t;
   $('failText').textContent = G.deadReason === 'pkg' ? 'Don Beto no quiere saber nada de lo que había adentro. Mejor intentalo otra vez.' : 'La Licenciada ya llamó tres veces. Don Beto te da otra oportunidad, pero solo una.';
   UI.showScreen('scrFail');
 }
 function snapshot(dist) {
-  G.snap = {stage: G.stage, dist: dist === undefined ? LV.stageBounds[G.stage] : dist, q: G.q, pkg: G.pkg, clock: G.clock, up: Object.assign({}, G.up), turtles: G.turtles, hits: G.hits, nears: G.nears, tricks: G.tricks, encargos: G.encargos};
+  G.snap = {level: MT.id, stage: G.stage, dist: dist === undefined ? LV.stageBounds[G.stage] : dist, q: G.q, q0: G.q0 || 0, spent: G.spent || 0, pkg: G.pkg, clock: G.clock, up: Object.assign({}, G.up), turtles: G.turtles, hits: G.hits, nears: G.nears, tricks: G.tricks, encargos: G.encargos};
   store.set('run', G.snap);
 }
+// Prepara todo lo que depende del nivel: vehículo, suelo, paleta, jefe y letrero de la interfaz.
+function useLevel(id) {
+  DEF = LEVELS[id];
+  MT = DEF.META;
+  G.level = id;
+  VEH = VEHICLES[MT.vehicle];
+  for (const k in VEHICLES) VEHICLES[k].setVisible(VEHICLES[k] === VEH);
+  for (const k in BOSSES) BOSSES[k].hide();
+  BOSSK = BOSSES[MT.boss.id];
+  pal = palOf(id);
+  LV = DEF.buildLevel(COARSE);
+  api.LV = LV;
+  api.MT = MT;
+  if (currentLevel !== id) {
+    currentLevel = id;
+    setGround(MT.ground);
+    setTrackTexture(LV);
+    U.uLeftHills.value = MT.leftHills;
+    U.uBurn.value.set(MT.burn ? MT.burn[0] : -1000, MT.burn ? MT.burn[1] : -1000);
+    U.uFogB.value = MT.ground === 'farm' ? 340 : MT.ground === 'city' ? 330 : 300;
+    camY = VEH.cam.y;
+    UI.setLevel(MT, LV);
+    VEH.update({x: 0, y: 0, speed: 0, steer: 0, air: false, crouch: false, brake: false, pkg: 100, time: 0, dt: 0.016, spin: 0, pitch: 0, vy: 0, rear: 0, scale: 1});
+    VEH.reset();
+  }
+}
 function startAt(snap) {
-  LV = buildLevel(COARSE);
-  Object.assign(G, {dist: snap.dist, stage: snap.stage, q: snap.q, pkg: max(snap.pkg, snap.dist ? 45 : 100), clock: max(snap.clock, META.stages[snap.stage].clock * 0.82), up: Object.assign({frenos: 0, carton: 0, cadena: 0}, snap.up), turtles: snap.turtles, hits: snap.hits, nears: snap.nears, tricks: snap.tricks, encargos: snap.encargos,
-    x: LV.center(snap.dist), y: 0, vy: 0, vx: 0, speed: 6, steer: 0, racha: 1, force: 1, iframes: 1.2, wet: 0, air: false, trickOn: false, spin: 0, ts: 1, phT: 0, phGap: snap.dist ? 1.4 : 0.8, fT: 0, cutT: 0, hitstop: 0, shake: 0, lines: 0.4, state: 'play', auto: G.auto, god: G.god});
+  useLevel(snap.level || 'monterrico');
+  Object.assign(G, {dist: snap.dist, stage: snap.stage, q: snap.q, q0: snap.q0 || 0, spent: snap.spent || 0, pkg: max(snap.pkg, snap.dist ? 45 : 100), clock: max(snap.clock, MT.stages[snap.stage].clock * 0.82), up: Object.assign({frenos: 0, carton: 0, cadena: 0}, snap.up), turtles: snap.turtles, hits: snap.hits, nears: snap.nears, tricks: snap.tricks, encargos: snap.encargos,
+    x: LV.center(snap.dist), y: 0, vy: 0, vx: 0, speed: 6, steer: 0, racha: 1, force: 1, iframes: 1.2, wet: 0, air: false, trickOn: false, spin: 0, spook: 0, mudT: 0, rear: 0, tired: 0, trickDone: false, pull: 0, pullT: 0, pullWarn: 0, pullNext: snap.dist ? 7 : 3, ts: 1, phT: 0, phGap: snap.dist ? 1.4 : 0.8, fT: 0, cutT: 0, hitstop: 0, shake: 0, lines: 0.4, state: 'play', auto: G.auto, god: G.god});
   BOSS.on = false;
   BOSS.mode = 'off';
-  BOSS.hunger = 0;
-  DOG.root.visible = false;
-  markMesh.visible = false;
+  BOSS.count = 0;
+  UI.boss(false, 0);
   PQ.length = 0;
+  G.autoBrake = false;
+  G.halted = false;
+  if (LV.lights) resetTraffic(LV, snap.dist);
+  Audio.siren(false);
+  Voice.stopAll();
   document.getElementById('fxCalls').innerHTML = '';
   $('phone').hidden = true;
   G.camHero = false;
@@ -213,7 +381,6 @@ function startAt(snap) {
   clearFx();
   G.time0 = U.uTime.value;
   G.camBlend = G.camBlend > 0.5 ? G.camBlend : 0;
-  BIKE.visible = true;
   P.uFadeK.value = 0;
   P.uFadeW.value = 0;
   P.uCut.value = 0;
@@ -221,17 +388,19 @@ function startAt(snap) {
   UI.showHud();
   UI.hud(G, LV);
   Audio.start(themeOf(snap.stage));
+  if (MT.vehicle === 'horse' && !snap.dist) Audio.neigh();
   anime({targets: G, camBlend: 0, duration: 1100, easing: 'easeInOutCubic'});
   setTimeout(() => {
-    if (G.state === 'play') UI.card(G.stage, META.stages[G.stage]);
+    if (G.state === 'play') UI.card(G.stage, MT.stages[G.stage]);
   }, 500);
-  updateMarkers();
 }
-const themeOf = (st) => st;
-export function newRun() {
+const themeOf = (st) => MT.music[st];
+// Las propinas de la parada anterior solo cuentan de la segunda en adelante.
+const startQ = (id) => (LEVELS[id].META.stop > 1 ? store.get('wallet', 0) : 0);
+export function newRun(id = G.level, q = 0) {
   document.activeElement && document.activeElement.blur && document.activeElement.blur();
   store.set('run', null);
-  startAt({stage: 0, dist: 0, q: 0, pkg: 100, clock: META.stages[0].clock, up: {frenos: 0, carton: 0, cadena: 0}, turtles: 0, hits: 0, nears: 0, tricks: 0, encargos: 0});
+  startAt({level: id, stage: 0, dist: 0, q, q0: q, spent: 0, pkg: 100, clock: LEVELS[id].META.stages[0].clock, up: {frenos: 0, carton: 0, cadena: 0}, turtles: 0, hits: 0, nears: 0, tricks: 0, encargos: 0});
   snapshot();
 }
 export function continueRun() {
@@ -239,11 +408,6 @@ export function continueRun() {
   if (s) startAt(s);
   else newRun();
 }
-const SHOP = [
-  {id: 'cadena', name: 'Cadena nueva', desc: 'Pedaleás un 6% más rápido.', price: 60},
-  {id: 'frenos', name: 'Frenos de verdad', desc: 'Frenás el doble y te recuperás más rápido de los golpes.', price: 45},
-  {id: 'carton', name: 'Cartón extra', desc: 'El paquete recibe 30% menos daño.', price: 70},
-];
 function openShop() {
   G.state = 'shop';
   snapshot();
@@ -253,12 +417,14 @@ function openShop() {
 }
 function renderShop() {
   $('shopQ').textContent = 'Q' + floor(G.q);
-  $('shopNext').textContent = META.stages[G.stage].name;
-  $('shopTime').textContent = '+' + META.stages[G.stage].clock + ' s al reloj';
+  $('shopTitle').textContent = MT.shop.title;
+  $('btnShopGo').textContent = MT.shop.go;
+  $('shopNext').textContent = MT.stages[G.stage].name;
+  $('shopTime').textContent = '+' + MT.stages[G.stage].clock + ' s al reloj';
   $('shopPkg').textContent = ceil(G.pkg) + '%';
   const L = $('shopList');
   L.innerHTML = '';
-  SHOP.forEach((s) => {
+  MT.shop.items.forEach((s) => {
     const owned = G.up[s.id] > 0, can = G.q >= s.price;
     const row = document.createElement('div');
     row.className = 'shoprow';
@@ -270,6 +436,7 @@ function renderShop() {
     b.disabled = owned || !can;
     b.addEventListener('click', () => {
       G.q -= s.price;
+      G.spent = (G.spent || 0) + s.price;
       G.up[s.id] = 1;
       Audio.buy();
       renderShop();
@@ -277,14 +444,13 @@ function renderShop() {
     row.appendChild(b);
     L.appendChild(row);
   });
-  const fix = G.pkg < 100 ? $('btnFix') : null;
   $('btnFix').disabled = G.q < 25 || G.pkg >= 100;
 }
 function leaveShop() {
   Audio.ui();
   UI.hideScreen('scrShop', () => {});
-  G.clock += META.stages[G.stage].clock;
-  UI.floatTime('+' + META.stages[G.stage].clock + ' s', true);
+  G.clock += MT.stages[G.stage].clock;
+  UI.floatTime('+' + MT.stages[G.stage].clock + ' s', true);
   G.state = 'play';
   G.iframes = 1;
   G.speed = max(G.speed, 8);
@@ -292,31 +458,25 @@ function leaveShop() {
   Audio.setLevel(themeOf(G.stage));
   Audio.resume();
   snapshot();
-  UI.card(G.stage, META.stages[G.stage]);
+  UI.card(G.stage, MT.stages[G.stage]);
 }
 function startBoss() {
-  snapshot(S3);
+  snapshot(LV.S3);
   BOSS.on = true;
-  BOSS.mode = 'cut';
-  BOSS.t = 0;
-  BOSS.next = 3;
-  BOSS.side = G.x < LV.center(G.dist) ? 1 : -1;
-  BOSS.x = G.x + BOSS.side * 3.1;
-  BOSS.z = 0.7;
-  BOSS.hunger = 0;
-  DOG.root.visible = true;
+  BOSSK.start(api);
   G.cutT = 1.25;
-  G.cutWhat = 'dog';
+  G.cutWhat = 'boss';
   cutCam.layers.set(2);
-  Audio.setLevel(3);
-  Audio.bark();
+  Audio.setLevel(MT.music[3]);
+  Audio[BOSSK.sfx]();
+  $('fxCalls').innerHTML = '';
   P.uCut.value = 1;
   anime.remove(P.uCutW);
   anime.timeline({easing: 'easeOutExpo'})
     .add({targets: P.uCutW, value: [0, 0.2], duration: 160})
     .add({targets: P.uCutW, value: 0.23, duration: 880, easing: 'linear'})
     .add({targets: P.uCutW, value: 0, duration: 150, easing: 'easeInExpo'});
-  UI.cut('¡TERREMOTO!', 'El chucho de Doña Tere');
+  UI.cut(MT.boss.cut, MT.boss.sub);
   G.fov = 66;
 }
 function endCut() {
@@ -326,19 +486,19 @@ function endCut() {
   impact(0.12, true);
   G.lines = 0.9;
   G.shake = 0.7;
-  if (G.cutWhat === 'dog') {
-    BOSS.mode = 'chase';
-    UI.boss(true, 0);
-    queuePhone('Mamá', '¡Las tortillas, mijo! Agarrá tres y se le quita lo bravo.');
-  }
+  if (G.cutWhat === 'boss') BOSSK.endCut(api);
 }
 function finish() {
   G.state = 'finish';
+  if (LV.lights) copOff(api);
+  Audio.siren(false);
+  Voice.stopAll();
   G.fT = 0;
   G.camHero = true;
   G.landed = false;
   G.landT = 0;
   UI.hideHud();
+  $('fxCalls').innerHTML = '';
   G.cutT = 0.95;
   G.cutWhat = 'rider';
   cutCam.layers.set(1);
@@ -348,50 +508,135 @@ function finish() {
     .add({targets: P.uCutW, value: [0, 0.19], duration: 140})
     .add({targets: P.uCutW, value: 0.22, duration: 660, easing: 'linear'})
     .add({targets: P.uCutW, value: 0, duration: 140, easing: 'easeInExpo'});
-  UI.cut('¡LA LANCHA!', 'Última salida a La Avellana');
+  UI.cut(MT.finish.cut, MT.finish.sub);
   Audio.fanfare();
-  DOG.root.visible = false;
-  markMesh.visible = false;
+  BOSSK.hide();
 }
 function showResults() {
   G.state = 'results';
   $('fxCalls').innerHTML = '';
   $('app').dataset.state = 'menu';
   const checks = [
-    [true, 'Llegaste a la lancha'],
+    [true, MT.finish.arrive],
     [G.pkg >= 60, 'Paquete con 60% o más'],
     [G.pkg >= 90, 'Paquete con 90% o más'],
     [G.clock >= 15, 'Te sobraron 15 segundos o más'],
-    [G.turtles === 0, 'Ninguna tortuguita golpeada'],
+    [G.turtles === 0, MT.soft.check],
   ];
   const n = checks.filter((c) => c[0]).length;
-  const best = store.get('best', {stars: 0, clock: 0, q: 0});
-  if (n > best.stars || (n === best.stars && G.clock > best.clock)) store.set('best', {stars: n, clock: G.clock, q: floor(G.q), pkg: ceil(G.pkg)});
+  const best = store.get(bestKey(MT.id), {stars: 0, clock: 0, q: 0});
+  if (n > best.stars || (n === best.stars && G.clock > best.clock)) store.set(bestKey(MT.id), {stars: n, clock: G.clock, q: floor(G.q), pkg: ceil(G.pkg)});
   store.set('run', null);
+  $('resStop').textContent = 'Parada ' + MT.stop + ' de 6';
+  $('resTitle').textContent = '¡' + MT.name + ', listo!';
+  $('resNote').innerHTML = MT.note;
+  const nx = $('btnNext');
+  nx.hidden = !MT.nextId;
+  if (MT.nextId) nx.textContent = 'Seguir a ' + LEVELS[MT.nextId].META.short;
+  $('btnAgain').className = MT.nextId ? 'btn btn-2' : 'btn btn-main';
   $('resList').innerHTML = checks.map((c) => '<li data-ok="' + (c[0] ? '1' : '0') + '">' + c[1] + '</li>').join('');
   UI.count($('resPkg'), ceil(G.pkg), (v) => floor(v) + '%');
   UI.count($('resClock'), max(0, G.clock), (v) => floor(v) + ' s');
   UI.count($('resQ'), floor(G.q), (v) => 'Q' + floor(v));
   $('resNear').textContent = String(G.nears);
   $('resEnc').textContent = String(G.encargos);
+  // Récord para la tabla de todos: propinas ganadas en esta parada, sin contar lo que traías.
+  REC.pending = {nivel: MT.id, estrellas: n, tiempo: Math.round(max(0, G.clock) * 10) / 10, propinas: max(0, floor(G.q - (G.q0 || 0) + (G.spent || 0))), paquete: ceil(G.pkg)};
+  REC.saved = false;
+  $('recName').value = store.get('name', '');
+  $('recMsg').textContent = '';
+  $('btnRecSave').disabled = false;
+  $('recForm').hidden = !plausible(REC.pending);
   UI.showScreen('scrResults');
   UI.stars(n);
-  G.shareText = 'Crucé Monterrico en Vuelta a Guatemala: ' + n + ' de 5 estrellas, paquete al ' + ceil(G.pkg) + '%.';
+  G.shareText = MT.share + ' en Vuelta a Guatemala: ' + n + ' de 5 estrellas, paquete al ' + ceil(G.pkg) + '%.';
 }
-export function goTitle() {
+const bestKey = (id) => (id === 'monterrico' ? 'best' : 'best.' + id);
+// ── Récords de todos ──
+const REC = {pending: null, saved: false, busy: false, lastId: null, lastLevel: null, from: 'title', tab: 'monterrico', tok: 0};
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[c]);
+async function saveRec() {
+  if (REC.saved || REC.busy || !REC.pending) return;
+  const msg = $('recMsg'), c = checkName($('recName').value);
+  if (c.error) {
+    msg.textContent = c.error;
+    return;
+  }
+  store.set('name', c.name);
+  REC.busy = true;
+  $('btnRecSave').disabled = true;
+  msg.textContent = 'Guardando…';
+  try {
+    const rec = Object.assign({nombre: c.name}, REC.pending);
+    REC.lastId = await saveRecord(rec);
+    REC.lastLevel = rec.nivel;
+    REC.saved = true;
+    msg.textContent = '¡Guardado!';
+    Audio.buy();
+    openRecords(rec.nivel, 'results');
+  } catch (e) {
+    $('btnRecSave').disabled = false;
+    msg.textContent = 'No se pudo guardar. Revisá tu internet e intentá otra vez.';
+  } finally {
+    REC.busy = false;
+  }
+}
+function openRecords(level, from) {
+  REC.from = from;
+  Audio.ui();
+  UI.hideScreen(from === 'results' ? 'scrResults' : 'scrTitle', () => {});
+  UI.showScreen('scrRecords');
+  showRecTab(LEVELS[level] ? level : 'monterrico');
+}
+function closeRecords() {
+  Audio.ui();
+  UI.hideScreen('scrRecords', () => {});
+  if (REC.from === 'results') UI.showScreen('scrResults');
+  else {
+    $('scrTitle').hidden = false;
+    UI.titleIn();
+    if (!COARSE) $('btnStart').focus({preventScroll: true});
+  }
+}
+async function showRecTab(level) {
+  REC.tab = level;
+  document.querySelectorAll('#recTabs [data-rec]').forEach((b) => b.setAttribute('aria-selected', b.dataset.rec === level ? 'true' : 'false'));
+  const L = $('recList'), note = $('recNote'), tok = ++REC.tok;
+  L.innerHTML = '';
+  note.textContent = 'Cargando récords…';
+  try {
+    const rows = await fetchTop(level, 10);
+    if (tok !== REC.tok) return;
+    if (!rows || !rows.length) {
+      note.textContent = 'Todavía no hay récords en esta parada. ¡Sé el primero!';
+      return;
+    }
+    L.innerHTML = rows.map((r, i) => '<li data-me="' + (r.id === REC.lastId ? 1 : 0) + '"><b class="rp">' + (i + 1) + '</b><span class="rn">' + esc(r.nombre) + '</span><span class="rs" aria-label="' + r.estrellas + ' de 5 estrellas">' + '★'.repeat(r.estrellas) + '<i>' + '★'.repeat(5 - r.estrellas) + '</i></span><span class="rt">' + floor(r.tiempo) + ' s</span><span class="rq">Q' + r.propinas + '</span></li>').join('');
+    anime({targets: '#recList li', translateX: [-18, 0], opacity: [0, 1], delay: anime.stagger(45), duration: 380, easing: 'easeOutExpo'});
+    const mine = REC.lastId && REC.lastLevel === level;
+    note.textContent = mine && !rows.some((r) => r.id === REC.lastId) ? 'Tu récord quedó guardado, pero todavía no entra entre los diez mejores.' : 'Gana el de más estrellas; si empatan, al que le sobró más tiempo.';
+  } catch (e) {
+    if (tok === REC.tok) note.textContent = 'No se pudieron cargar los récords. Revisá tu internet.';
+  }
+}
+export function goTitle(id = G.level) {
+  store.set('level', id);
+  Audio.siren(false);
+  Voice.stopAll();
+  useLevel(id);
   G.state = 'title';
   G.camBlend = 1;
   G.camHero = false;
-  LV = buildLevel(COARSE);
-  G.dist = 40;
-  G.x = 3;
-  G.speed = 15;
+  G.dist = MT.title.D0;
+  G.x = MT.title.x(LV, G.dist, U.uTime.value);
+  G.speed = MT.title.speed;
   G.y = 0;
   G.vy = 0;
   G.spin = 0;
+  G.rear = 0;
+  G.sprint = G.brake = false;
   BOSS.on = false;
-  DOG.root.visible = false;
-  BIKE.visible = true;
+  BOSS.mode = 'off';
   UI.hideHud();
   P.uFadeK.value = 0;
   P.uFadeW.value = 0;
@@ -403,13 +648,36 @@ export function goTitle() {
   if (!COARSE) $('btnStart').focus({preventScroll: true});
 }
 function refreshTitle() {
-  const best = store.get('best', null), run = store.get('run', null);
-  $('bestLine').textContent = best ? 'Tu mejor entrega en Monterrico: ' + best.stars + ' de 5 estrellas.' : 'Primera entrega: Monterrico.';
+  const best = store.get(bestKey(MT.id), null);
+  let run = store.get('run', null);
+  if (run && (run.level || 'monterrico') !== MT.id) run = null;
+  $('bestLine').textContent = best ? 'Tu mejor entrega aquí: ' + best.stars + ' de 5 estrellas.' : 'Parada ' + MT.stop + ' de 6.';
+  $('btnStart').textContent = 'Arrancar en ' + MT.short;
+  $('btnBell').textContent = MT.callChip;
+  $('legendDesk').textContent = 'Flechas o A y D: moverte · Espacio: saltar, y otra vez en el aire para la pirueta · ↑ ' + MT.sprintWord + ' · ↓ frenar · B: ' + MT.callWord + ' · P: pausa';
   const cont = $('btnContinue');
-  cont.hidden = !(run && run.stage > 0);
-  if (run && run.stage > 0) cont.firstElementChild.textContent = 'Seguir en ' + META.stages[run.stage].name;
+  const show = run && (run.stage > 0 || run.dist > 0);
+  cont.hidden = !show;
+  if (show) cont.firstElementChild.textContent = 'Seguir en ' + MT.stages[run.stage].name;
+  document.querySelectorAll('#route [data-level]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.level === MT.id ? 'true' : 'false'));
 }
-function updateMarkers() {}
+// Cambiar de parada en el título, con un fundido corto.
+let picking = false;
+function pickLevel(id) {
+  if (id === G.level || picking || G.state !== 'title') return;
+  picking = true;
+  Audio.ui();
+  anime({targets: P.uFadeK, value: 1, duration: 170, easing: 'easeInQuad', complete: () => {
+    useLevel(id);
+    store.set('level', id);
+    if (VEH.call() === 'neigh') Audio.neigh();
+    G.dist = MT.title.D0;
+    G.x = MT.title.x(LV, G.dist, U.uTime.value);
+    G.speed = MT.title.speed;
+    refreshTitle();
+    anime({targets: P.uFadeK, value: 0, duration: 260, easing: 'easeOutQuad', complete: () => (picking = false)});
+  }});
+}
 // ── Llamadas ──
 const PQ = [];
 function queuePhone(from, t) {
@@ -441,14 +709,17 @@ function updatePhone(dt0) {
 // ── Piloto automático (título y pruebas) ──
 const AP = {x: 0, t: 0};
 function autoDrive(tr, sh) {
-  const sp = max(G.speed, 8), L = sp * 1.9;
+  const sp = max(G.speed, 8), L = sp * 1.9, farm = MT.ground === 'farm', city = MT.ground === 'city', jumpH = VEH.phys.jumpH, hwV = VEH.phys.halfW;
   let best = 1e9, bx = G.x;
-  const lo = tr.kind === 0 ? max(tr.cx - tr.hw, sh + 0.2) : tr.cx - tr.hw + 0.5, hi = tr.kind === 0 ? tr.cx + min(tr.hw, 11) : tr.cx + tr.hw - 0.5;
+  const open = tr.kind === 0 && !city, wide = farm ? tr.hw + MT.fenceOff - 1 : min(tr.hw, 11);
+  const edge = city ? hwV + 0.15 : 0.5;
+  const lo = open ? (farm ? tr.cx - wide : max(tr.cx - tr.hw, sh + 0.2)) : tr.cx - tr.hw + edge, hi = open ? tr.cx + wide : tr.cx + tr.hw - edge;
   const obs = [];
+  // También lo que va a la par: no hay que cerrarse encima del carro que estás pasando.
   const near = (it) => {
     if (it.gone || it.passed) return;
     const d = it.D - G.dist;
-    if (d < 0 || d > L) return;
+    if (d > L || d < (it.solid ? -(it.l || 1) - 0.4 : 0)) return;
     if (it.solid || it.pick) obs.push([it, d]);
   };
   for (let i = LV.cursor; i < LV.items.length; i++) {
@@ -459,18 +730,30 @@ function autoDrive(tr, sh) {
   for (const m of LV.movers) if (m.on) near(m);
   for (let k = 0; k <= 12; k++) {
     const x = lerp(lo, hi, k / 12);
-    let c = abs(x - G.x) * 0.1;
-    if (tr.kind === 0) c += abs(x - (sh + 1.7)) * 0.32;
-    else c += abs(x - tr.cx) * 0.6;
+    let c = abs(x - G.x) * 0.1 + (city ? abs(x - AP.x) * 0.14 : 0);
+    if (open && !farm) c += abs(x - (sh + 1.7)) * 0.32;
+    else c += abs(x - tr.cx) * (farm ? 0.3 : 0.6);
+    if (BOSSK.laneCost && BOSS.on) c += BOSSK.laneCost(api, x);
     for (const [it, d] of obs) {
-      const ax = it.x + (it.vx || 0) * (d / sp);
+      // Las motos que zigzaguean ocupan todo su vaivén.
+      const weave = it.kind === 'weave' || (city && it.kind === 'crab'), ax = weave ? it.x0 : it.x + (it.vx || 0) * (d / sp);
       if (it.pick) {
         if (abs(x - ax) < 1.2) c -= it.pick === 'coin' ? 0.6 : 6;
         continue;
       }
-      const clear = it.w + 0.75;
+      if (it.mud) {
+        if (d >= 0 && abs(x - ax) < it.w) c += 3;
+        continue;
+      }
+      // Lo que está casi encima o a la par: no cruzarse en su camino para llegar al carril.
+      if (d < 7 && !(it.h < jumpH && G.y > it.h)) {
+        const band = it.w + hwV + 0.3 + (weave ? abs(it.amp) : 0);
+        if (abs(G.x - ax) >= band && min(G.x, x) < ax + band && max(G.x, x) > ax - band) c += 70;
+      }
+      if (d < 0) continue;
+      const clear = it.w + (city ? hwV + 0.55 : 0.75) + (weave ? abs(it.amp) : 0);
       if (abs(x - ax) < clear) {
-        const jumpable = it.h < 1.05 && !it.h0;
+        const jumpable = it.h < jumpH && !it.h0;
         c += (jumpable ? 12 : 90) * (1.3 - d / L);
       }
     }
@@ -480,13 +763,14 @@ function autoDrive(tr, sh) {
     }
   }
   AP.x = bx;
-  IN.stick = clamp((AP.x - G.x) * 0.55, -1, 1);
+  // Si Turbo se jala, el piloto lo corrige como lo haría una persona.
+  IN.stick = clamp((AP.x - G.x) * 0.55 - (MT.pull ? MT.pull.dir * MT.pull.s * (G.pull || 0) * (G.pullK === undefined ? 1 : G.pullK) : 0), -1, 1);
   IN.stickOn = true;
   // Saltar lo que no se puede esquivar
   if (G.y <= 0) {
     for (const [it, d] of obs) {
-      if (it.pick || it.soft && false) continue;
-      if (it.h < 1.05 && abs(G.x - it.x) < it.w + 0.5 && d < sp * 0.27 && d > 1) IN.jump = 0.12;
+      if (it.pick || it.mud) continue;
+      if (it.h < jumpH && !it.h0 && abs(G.x - it.x) < it.w + (city ? hwV + 0.1 : 0.5) && d < sp * (farm ? 0.24 : 0.27) && d > 1) IN.jump = 0.12;
     }
     for (const g of LV.gaps) {
       const d = g[0] - G.dist;
@@ -496,7 +780,16 @@ function autoDrive(tr, sh) {
       const d = t.D - G.dist;
       if (!t.used && d > 0 && d < sp * 0.2) IN.jump = 0.12;
     }
-    if (BOSS.mode === 'aim' && BOSS.aim < 0.42) IN.jump = 0.12;
+    if (BOSS.on && BOSSK.auto && BOSSK.auto(api)) IN.jump = 0.12;
+  }
+  // En la capital, el piloto para en los rojos y en los amarillos que no alcanza.
+  G.autoBrake = false;
+  if (city) {
+    const Lt = lightAhead(LV, G.dist, 110);
+    if (Lt && Lt.phase !== 'g') {
+      const d = Lt.D - G.dist - 1.4, need = (G.speed * G.speed) / (2 * (G.up.frenos ? 34 : 17)) + 5;
+      if (d > -0.3 && d < need + 4 && !(Lt.phase === 'y' && d < G.speed * 0.5)) G.autoBrake = true;
+    }
   }
 }
 // ── Actualización ──
@@ -540,14 +833,19 @@ function updateMovers(dt, t) {
     }
     if (m.kind === 'crab') {
       m.x = m.x0 + m.amp * sin(t * m.wv + m.ph);
-      m.r = 0.5 * sin(t * 6 + m.ph);
-    } else if (m.kind === 'turtle') {
+      m.r = (m.r0 || 0) + (m.wobA === undefined ? 0.5 : m.wobA) * sin(t * (m.wobF || 6) + m.ph);
+    } else if (m.kind === 'turtle' || m.kind === 'drift') {
       m.x += m.vx * dt;
     } else if (m.kind === 'traffic') {
       m.D += m.vD * dt;
+    } else if (m.kind === 'weave') {
+      // Motos que van zigzagueando entre carriles
+      m.D += m.vD * dt;
+      m.x = m.x0 + m.amp * sin(t * m.wv + m.ph);
+      m.r = -0.35 * cos(t * m.wv + m.ph) * Math.sign(m.amp);
     } else if (m.kind === 'heron') {
       if (m.D - G.dist < 62) m.x += m.vx * dt;
-      m.y = 2.5 + sin(t * 3) * 0.1;
+      m.y = (m.flyH || 2.5) + sin(t * 3) * 0.1;
     } else if (m.kind === 'coco') {
       const d = m.D - G.dist;
       if (d < 44) {
@@ -565,16 +863,20 @@ function updateMovers(dt, t) {
 function collide(it, prev) {
   if (it.gone) return;
   const d = it.D - G.dist, sw = G.dist - prev;
+  if (it.mud) {
+    if (G.y < 0.05 && abs(d) < it.l + sw && abs(G.x - it.x) < it.w) G.mudT = 0.12;
+    return;
+  }
   if (it.pick) {
     if (d < it.l + 0.4 && d > -it.l - sw && abs(G.x - it.x) < it.w + 0.5 && abs(G.y + 1 - (it.y || 1)) < 1.5) pickup(it);
     return;
   }
   if (!it.solid) return;
-  const dx = abs(G.x - it.x), wide = it.w + 0.34;
+  const dx = abs(G.x - it.x), wide = it.w + VEH.phys.halfW;
   if (!it.passed && d < it.l + 0.25 && d > -it.l - sw - 0.25 && dx < wide) {
     const y0 = it.y && it.kind !== 'heron' ? it.y : 0;
     let hit;
-    if (it.kind === 'heron') hit = G.y > 0.32;
+    if (it.kind === 'heron') hit = G.y > (it.hitY || 0.32);
     else if (it.kind === 'coco') hit = it.y < 1.8 && G.y < it.y + it.h;
     else hit = G.y < it.h;
     if (hit) {
@@ -593,61 +895,103 @@ function collide(it, prev) {
 }
 function updatePlay(dt, dt0, t) {
   const prev = G.dist;
-  const st = META.stages[G.stage];
+  const st = MT.stages[G.stage], PH = VEH.phys;
   const tr = trackAt(G.dist);
   const time = U.uTime.value;
   let sh = 0;
-  G.hard = G.soft = G.inWater = false;
+  G.hard = G.soft = G.inWater = G.road = false;
+  G.chip = '';
   // Velocidad objetivo
   let mul = 1;
-  if (tr.kind === 0) {
+  const farm = MT.ground === 'farm';
+  if (G.mudT > 0) G.mudT -= dt0;
+  if (farm) {
+    if (G.y <= 0.05) {
+      const off = abs(G.x - tr.cx) - tr.hw;
+      if (tr.base > 0.5 && tr.kind !== 1) {
+        mul = 0.74;
+        G.inWater = true;
+        G.chip = 'En el agua';
+      } else if (G.mudT > 0) {
+        mul = 0.6;
+        G.chip = 'Lodo';
+      } else if (tr.kind === 0) {
+        if (off < 0) {
+          mul = 1.1;
+          G.road = true;
+        } else if (off > 4.5) {
+          mul = 0.8;
+          G.chip = 'Monte alto';
+        } else {
+          mul = 0.92;
+          G.chip = 'Pasto';
+        }
+      }
+    }
+  } else if (tr.kind === 0 && MT.ground === 'beach') {
     sh = shoreAt(G.dist, tr.base, time);
     const ds = sh - G.x;
     if (G.y <= 0.05) {
       if (ds > 0) {
         mul = 0.52;
         G.inWater = true;
+        G.chip = 'En el agua';
       } else if (-ds < WET_W) {
         mul = 1.2;
         G.hard = true;
+        G.chip = 'Arena dura';
       } else if (-ds > 9) {
         mul = lerp(1, 0.8, sstep(9, 16, -ds));
         G.soft = -ds > 12;
+        if (G.soft) G.chip = 'Arena suelta';
       }
     }
   }
   if (G.auto) autoDrive(tr, sh);
-  const wantBrake = IN.down || IN.brakeBtn;
-  const wantSprint = (IN.up || IN.pedalBtn) && G.force > 0.02 && !wantBrake;
+  const wantBrake = IN.down || IN.brakeBtn || G.autoBrake;
+  // Si se le acaba el aliento, Turbo no se deja apurar hasta recuperarse un poco.
+  if (G.tired > 0) G.tired = G.force > 0.35 ? 0 : G.tired;
+  const wantSprint = (IN.up || IN.pedalBtn) && G.force > 0.02 && !wantBrake && !G.tired;
   G.sprint = wantSprint;
   G.brake = wantBrake;
-  G.force = wantSprint ? max(0, G.force - dt / 3.4) : min(1, G.force + dt * 0.14);
-  let target = st.speed * (BOSS.on ? 1.12 : 1) * mul * (1 + G.up.cadena * 0.06) * (wantSprint ? 1.26 : 1);
-  if (wantBrake) target = 4;
-  const accel = wantBrake ? (G.up.frenos ? 34 : 17) : G.speed < target ? (G.up.frenos ? 15 : 10) : 8;
+  G.force = wantSprint ? max(0, G.force - dt * PH.drain) : min(1, G.force + dt * PH.regen);
+  if (MT.vehicle === 'horse' && wantSprint && G.force <= 0.02) {
+    G.tired = 1;
+    shout('¡Turbo ya no da!', 3);
+    say('¡Turbo ya no da!');
+    Audio.neigh();
+  }
+  let target = st.speed * (BOSS.on ? 1.12 : 1) * mul * (1 + G.up.cadena * 0.06) * (wantSprint ? PH.sprint : 1) * (G.tired ? 0.86 : 1);
+  if (G.spook > 0) target *= 1.08;
+  // La camioneta sí para del todo (semáforos y paradas); los demás solo bajan la velocidad.
+  if (wantBrake) target = MT.ground === 'city' ? 0 : 4;
+  const accel = wantBrake ? (G.up.frenos ? 34 : 17) : G.speed < target ? (G.up.frenos ? 15 : PH.accel) : 8;
   G.speed = G.speed < target ? min(target, G.speed + accel * dt) : max(target, G.speed - accel * dt);
   G.dist += G.speed * dt;
   // Dirección
-  const s = readSteer();
+  let s = readSteer();
+  // Asustado por los cohetillos, Turbo arranca más rápido un ratito, pero sigue yendo para donde lo guiás.
+  if (G.spook > 0) G.spook -= dt0;
+  if (MT.pull) s = updatePull(s, dt0, tr, sh);
   // Al soltar frena más rápido que al arrancar, para esquivar con precisión.
-  G.steer = damp(G.steer, s, s * G.steer < 0 || s === 0 ? 18 : 11, dt0);
-  const VX = 13.5 * clamp(G.speed / 16, 0.55, 1);
+  G.steer = damp(G.steer, s, s * G.steer < 0 || s === 0 ? PH.steerRel : PH.steer, dt0);
+  const VX = PH.vx * clamp(G.speed / 16, 0.55, 1);
   G.x += G.steer * VX * dt;
   // Salto y pirueta
   if (IN.jump > 0) {
     IN.jump -= dt0;
     if (G.y <= 0 && !G.onRamp) {
-      G.vy = 9.8;
+      G.vy = PH.jumpV;
       G.y = 0.01;
       G.air = true;
       IN.jump = 0;
       Audio.jump();
-      kickPackage(0.5);
+      VEH.kick(0.5);
       burst(G.x, 0.1, 0.4, 4, 3, 0.3, 0.13, col('uSandB'), {world: 0.8});
-    } else if (G.y > 0.35 && !G.trickOn) {
+    } else if (G.y > 0.35 && !G.trickOn && !G.trickDone) {
       // Si ya casi aterriza, el toque queda guardado para el próximo salto.
-      const left = (G.vy + sqrt(max(0, G.vy * G.vy + 52 * G.y))) / 26;
-      if (left >= 0.28) {
+      const left = (G.vy + sqrt(max(0, G.vy * G.vy + 2 * PH.grav * G.y))) / PH.grav;
+      if (left >= 0.34) {
         G.trickOn = true;
         G.trick = 0;
         IN.jump = 0;
@@ -669,7 +1013,7 @@ function updatePlay(dt, dt0, t) {
       G.rampV = 0;
       G.air = true;
       Audio.jump();
-      kickPackage(0.9);
+      VEH.kick(0.9);
       G.lines = max(G.lines, 0.35);
       if (r.last) {
         finish();
@@ -679,18 +1023,18 @@ function updatePlay(dt, dt0, t) {
   }
   if (!G.onRamp) {
     if (G.y > 0 || G.vy > 0) {
-      G.vy -= 26 * dt;
+      G.vy -= PH.grav * dt;
       G.y += G.vy * dt;
       if (G.y <= 0) {
         // Aterrizaje
-        const hard = G.vy < -12.5;
+        const hard = G.vy < -13.5;
         G.y = 0;
-        const v = G.vy;
         G.vy = 0;
         G.air = false;
         G.spin = 0;
+        G.trickDone = false;
         Audio.land(hard ? 1 : 0.65);
-        kickPackage(hard ? 2.4 : 1.2);
+        VEH.kick(hard ? 2.4 : 1.2);
         burst(G.x, 0.1, 0.3, hard ? 9 : 5, 4, 0.4, 0.16, col('uSandB'), {world: 0.8});
         if (G.trickOn) {
           G.trickOn = false;
@@ -715,6 +1059,7 @@ function updatePlay(dt, dt0, t) {
     G.spin = G.trick * PI * 2;
     if (G.trick >= 1) {
       G.trickOn = false;
+      G.trickDone = true;
       G.spin = 0;
       if (G.trickCool <= 0) {
         // Premio una vez cada tanto: saltar sin parar no regala tiempo.
@@ -726,6 +1071,7 @@ function updatePlay(dt, dt0, t) {
         G.rachaT = 6;
         UI.floatTime('+0.5 s', true);
         shout('¡PIRUETA!', 2);
+        say('¡Pirueta!');
         Audio.pickup();
       }
     }
@@ -741,8 +1087,9 @@ function updatePlay(dt, dt0, t) {
           G.y = 0.02;
           G.air = true;
           G.shake = 0.5;
-          kickPackage(2.5);
+          VEH.kick(2.5);
           shout('¡TÚMULO!', 3);
+          say('¡Túmulo!', true);
           Audio.land(1);
           UI.floatTime('−' + ceil(5 * (1 - G.up.carton * 0.3)) + '% paquete', false);
           damage(5);
@@ -756,17 +1103,32 @@ function updatePlay(dt, dt0, t) {
   // Límites de la pista
   const tr2 = trackAt(G.dist);
   const k = tr2.kind;
-  if (k === 0) {
-    const left = max(tr2.cx - tr2.hw, shoreAt(G.dist, tr2.base, time) - 6);
-    const right = tr2.cx + tr2.hw;
+  if (MT.ground === 'city') {
+    const lim = tr2.hw - PH.halfW * 0.92, dx = G.x - tr2.cx;
+    G.scraping = abs(dx) > lim;
+    if (abs(dx) > lim) {
+      G.x = tr2.cx + Math.sign(dx) * lim;
+      G.speed = max(G.speed * (1 - dt * 1.4), min(G.speed, 11));
+      if (rnd() < dt0 * 30) fx(3, G.x + Math.sign(dx) * 0.9, rnd(0.3, 1.2), rnd(0.5, 6), 0.08, 0.22, [1.8, 1.3, 0.5], {add: 1, vx: Math.sign(dx) * rnd(1, 4), vy: rnd(1, 4), vz: rnd(2, 8), grav: 14, world: 0.5});
+      if (G.callT <= 0 && G.speed > 14) {
+        shout('¡Raspón!', 0);
+        G.callT = 2.5;
+      }
+    }
+  } else if (k === 0) {
+    const off = tr2.hw + MT.fenceOff;
+    const left = farm ? tr2.cx - off : max(tr2.cx - tr2.hw, shoreAt(G.dist, tr2.base, time) - 6);
+    const right = tr2.cx + (farm ? off : tr2.hw);
     if (G.x < left) G.x = left;
     if (G.x > right) G.x = right;
-  } else if (k === 2) {
+  } else if (k >= 2) {
     const dx = G.x - tr2.cx;
     if (abs(dx) > tr2.hw - 0.3) {
       G.x = tr2.cx + Math.sign(dx) * (tr2.hw - 0.3);
       G.speed = max(G.speed * (1 - dt * 1.5), 8);
-      if (rnd() < dt * 26) fx(3, G.x, 0.7, 0.2, 0.1, 0.22, [1.6, 1.2, 0.5], {add: 1, vx: -Math.sign(dx) * rnd(2, 6), vy: rnd(1, 5), vz: rnd(0, 6), grav: 16, world: 0.5});
+      if (farm) {
+        if (rnd() < dt * 22) fx(3, G.x + Math.sign(dx) * 0.4, rnd(0.6, 2), 0.2, rnd(0.05, 0.1), 0.42, col('uGrass'), {add: 0, vx: -Math.sign(dx) * rnd(1, 4), vy: rnd(0.5, 3), vz: rnd(1, 6), grav: 9, world: 0.5});
+      } else if (rnd() < dt * 26) fx(3, G.x, 0.7, 0.2, 0.1, 0.22, [1.6, 1.2, 0.5], {add: 1, vx: -Math.sign(dx) * rnd(2, 6), vy: rnd(1, 5), vz: rnd(0, 6), grav: 16, world: 0.5});
     }
   } else if (k === 1) {
     const dx = abs(G.x - tr2.cx);
@@ -778,14 +1140,25 @@ function updatePlay(dt, dt0, t) {
   // Rastro
   const rate = dt0 * G.speed * 0.8;
   if (G.y <= 0 && rnd() < rate) {
-    if (G.inWater || G.hard) {
+    if (MT.vehicle === 'bike' && (G.inWater || G.hard)) {
       const c = col('uFoam');
       fx(3, G.x + rnd(-0.1, 0.1), 0.15, 0.6, rnd(0.05, 0.13), 0.42, c, {add: 0, vx: rnd(-1.5, 1.5), vy: rnd(1.2, G.inWater ? 5 : 3), vz: rnd(2, 6), grav: 15, world: 0.45});
-    } else if (k === 0) {
+    } else if (k === 0 && !farm) {
       fx(3, G.x + rnd(-0.1, 0.1), 0.12, 0.7, rnd(0.08, 0.2), 0.45, col('uSandB'), {add: 0, vx: rnd(-0.5, 0.5), vy: rnd(0.2, 1), vz: 1, grow: 0.4, world: 0.5});
     }
   }
   if (G.sprint && rnd() < dt0 * 16) fx(3, G.x, rnd(0.4, 1.2), 0.6, 0.04, 0.2, [1.5, 1.4, 1], {add: 1, vz: 10, world: 0.5});
+  // Humo negro del escape cuando la camioneta acelera; y el "psst" de los frenos de aire al parar.
+  if (MT.vehicle === 'bus') {
+    if (G.sprint && rnd() < dt0 * 20) {
+      const q = exhaustTip();
+      fx(3, q.x, q.y, q.z, rnd(0.22, 0.38), 0.9, [0.07, 0.06, 0.07], {add: 0, vx: rnd(-0.4, 0.4), vy: rnd(1.4, 2.8), vz: rnd(1, 4), grow: 1.5, world: 0.85});
+    }
+    if (G.speed < 0.8 && !G.halted) {
+      G.halted = true;
+      Audio.airbrake();
+    } else if (G.speed > 4) G.halted = false;
+  }
   // Colisiones
   const list = LV.items;
   for (let i = LV.cursor; i < list.length; i++) {
@@ -837,123 +1210,77 @@ function updatePlay(dt, dt0, t) {
     G.dist = LV.stageBounds[G.stage];
     G.x = LV.center(G.dist);
     Audio.bell();
+    if (LV.lights) copOff(api);
     if (TEST.autoShop) {
-      G.clock += META.stages[G.stage].clock;
-      Audio.setLevel(G.stage);
+      G.clock += MT.stages[G.stage].clock;
+      Audio.setLevel(themeOf(G.stage));
       snapshot();
     } else openShop();
     return;
   }
-  if (!BOSS.on && G.dist >= S3) startBoss();
-  if (BOSS.on) updateBoss(dt, dt0, time);
+  if (!BOSS.on && G.dist >= LV.S3) startBoss();
+  if (BOSS.on) BOSSK.update(api, dt, dt0, time);
+  if (LV.lights) updateTraffic(api, dt, dt0, time);
 }
-// Terremoto corre a un lado. Cuando ladra marca una franja roja y se lanza de costado:
-// se esquiva saltando o saliéndose de la franja.
-const LUNGE = {len: 11, speed: 26, hitH: 0.95};
-function dogHome() {
-  const b = BOSS, tr = trackAt(G.dist), room = max(1, tr.hw - 0.7);
-  let hx = G.x + b.side * 3.1;
-  if (abs(hx - tr.cx) > room) {
-    b.side = -b.side;
-    hx = G.x + b.side * 3.1;
-  }
-  return clamp(hx, tr.cx - room, tr.cx + room);
+// Algo que te saca de tu línea unos segundos: Turbo que se jala, el viento del mar o la camioneta
+// desalineada. Avisa antes, y hay que corregir para el otro lado.
+function bridgeAhead() {
+  for (let k = 0; k <= 120; k += 15) if (trackAt(G.dist + k).kind === 1) return true;
+  return false;
 }
-function updateBoss(dt, dt0, time) {
-  const b = BOSS;
-  b.t += dt0;
-  let yaw = 0, hop = 0, mode = 'run';
-  if (b.mode === 'chase') {
-    b.z = damp(b.z, 0.7 + sin(time * 1.3) * 0.4, 3, dt0);
-    b.x = damp(b.x, dogHome(), 4, dt0);
-    b.next -= dt0;
-    if (b.next <= 0 && G.y <= 0.2) {
-      b.mode = 'aim';
-      b.aim = 0.88;
-      b.x0 = b.x;
-      b.xEnd = b.x - b.side * LUNGE.len;
-      Audio.bark();
-      shout('¡Grrr!', 3, 1.4);
+function pullAllowed() {
+  if (BOSS.on || G.y > 0.05) return false;
+  if (MT.ground === 'beach') return G.dist < LV.S1 - 160 && trackAt(G.dist).kind === 0;
+  if (MT.ground === 'farm') return !bridgeAhead() && !G.inWater;
+  return G.speed > 12 && !(LV.lights && lightAhead(LV, G.dist, 45));
+}
+// Cuánto más te puede llevar: llega hasta el pasto o la arena suelta, no más allá.
+function pullRoom(tr, sh) {
+  if (MT.ground === 'beach') return sh + 11 - G.x;
+  if (MT.ground === 'farm') return G.x - (tr.cx - tr.hw - 2.5);
+  return 9;
+}
+function updatePull(s, dt0, tr, sh) {
+  const PL = MT.pull;
+  if (G.pullT > 0) {
+    G.pullT -= dt0;
+    G.pull = min(1, G.pull + dt0 * 5);
+    if (G.scraping) G.pullBad = true;
+    if (G.pullT <= 0 && G.hits === G.pullHits && !G.pullBad && pullRoom(tr, sh) > 1) {
+      G.q += 4;
+      G.racha = min(9, G.racha + 1);
+      G.rachaT = 6;
+      shout('¡Lo controlaste!', 1);
     }
-    yaw = b.side * 0.22;
-  } else if (b.mode === 'aim') {
-    b.aim -= dt0;
-    b.z = damp(b.z, 0.3, 8, dt0);
-    yaw = b.side * 1.25;
-    mode = 'aim';
-    if (b.aim <= 0) {
-      b.mode = 'lunge';
-      b.hitDone = false;
-    }
-  } else if (b.mode === 'lunge') {
-    const px = b.x;
-    b.x -= b.side * LUNGE.speed * dt0;
-    yaw = b.side * 1.5;
-    hop = sin(clamp(abs(b.x - b.x0) / LUNGE.len) * PI) * 0.5;
-    if (!b.hitDone && (px - G.x) * (b.x - G.x) <= 0) {
-      b.hitDone = true;
-      if (G.y < LUNGE.hitH && G.iframes <= 0) {
-        G.iframes = 1;
-        G.shake = 0.8;
-        G.speed *= 0.62;
-        G.hits++;
-        G.racha = 1;
-        G.hitstop = 0.06;
-        impact(0.05, false);
-        shout('¡Te mordió el paquete!', 3);
-        Audio.hit();
-        UI.floatTime('−' + ceil(13 * (1 - G.up.carton * 0.3)) + '% paquete', false);
-        damage(13);
-      } else if (G.iframes <= 0) {
-        G.q += 4;
-        G.clock += 0.5;
-        G.racha = min(9, G.racha + 1);
-        G.rachaT = 6;
-        shout('¡Por poquito!', 2);
-        Audio.near(1, 0);
+  } else {
+    G.pull = max(0, G.pull - dt0 * 3);
+    if (G.pullWarn > 0) {
+      G.pullWarn -= dt0;
+      if (G.pullWarn <= 0) {
+        G.pullT = rnd(1.8, 2.6);
+        G.pullHits = G.hits;
+        G.pullBad = false;
+      }
+    } else if (G.dist > PL.from) {
+      G.pullNext -= dt0;
+      if (G.pullNext <= 0) {
+        if (!pullAllowed()) G.pullNext = 2;
+        else {
+          G.pullNext = rnd(10, 16);
+          G.pullWarn = 0.8;
+          Audio[PL.sfx]();
+          shout(PL.shout, 3);
+          say(PL.shout);
+        }
       }
     }
-    if ((b.x - b.xEnd) * b.side <= 0) {
-      b.mode = 'chase';
-      b.side = -b.side;
-      b.next = rnd(2.2, 3.2) - (0.5 * G.dist) / LEN;
-    }
-  } else if (b.mode === 'eat') {
-    b.z += G.speed * dt;
-    b.eatT -= dt0;
-    mode = 'eat';
-    if (b.hunger >= 3 && b.z > 26) {
-      b.mode = 'full';
-      UI.boss(false, 3);
-      shout('¡Se llenó!', 2);
-      queuePhone('Doña Tere', 'Ya se durmió el Terremoto. Andá tranquilo, mijo.');
-      Audio.setLevel(2);
-    } else if (b.eatT <= 0 && b.hunger < 3) {
-      b.mode = 'return';
-      Audio.bark();
-    }
-  } else if (b.mode === 'return') {
-    b.z -= 11 * dt0;
-    b.x = damp(b.x, dogHome(), 3, dt0);
-    if (b.z <= 1) {
-      b.mode = 'chase';
-      b.next = rnd(1.6, 2.6);
-    }
-  } else if (b.mode === 'cut') {
-    b.x = G.x + b.side * 3.1;
-    b.z = 0.7;
   }
-  const vis = b.mode !== 'full' && b.z < 40;
-  DOG.root.visible = vis;
-  updateDog(b.x, hop, b.z, mode === 'eat' ? 0 : G.speed, dt0, time, mode, yaw);
-  if (vis) dropShadow(b.x, b.z, 0.8, 1.5);
-  const aiming = b.mode === 'aim';
-  markMesh.visible = aiming;
-  if (aiming) {
-    // La franja corre de costado a la altura del perro.
-    markMesh.position.set(b.x0 - (b.side * LUNGE.len) / 2, 0, b.z);
-    markMesh.rotation.y = (b.side * PI) / 2;
-  }
+  const on = G.pullT > 0 || G.pullWarn > 0;
+  if (on) G.chip = PL.chip;
+  // Arena que vuela con el viento
+  if (on && MT.ground === 'beach' && rnd() < dt0 * 46) fx(3, G.x - PL.dir * rnd(3, 14), rnd(0.15, 1.8), rnd(-16, 3), rnd(0.03, 0.06), 0.55, col('uSandB'), {add: 0, vx: PL.dir * rnd(9, 15), vy: rnd(-0.3, 0.6), world: 0.7});
+  G.pullK = clamp(pullRoom(tr, sh) / 2.5);
+  return clamp(s + PL.dir * PL.s * G.pull * G.pullK, -1, 1);
 }
 function startFall() {
   G.state = 'falling';
@@ -968,7 +1295,8 @@ function startFall() {
   const c = col('uFoam');
   for (let i = 0; i < 22; i++) fx(3, G.x + rnd(-0.5, 0.5), 0.1, rnd(-0.5, 0.8), rnd(0.08, 0.22), 0.6, c, {add: 0, vx: rnd(-4, 4), vy: rnd(3, 9), vz: rnd(-3, 3), grav: 18, world: 0.5});
   fx(1, G.x, 0.1, 0, 3.4, 0.5, c, {world: 0.5});
-  shout('¡Al agua!', 3);
+  shout(MT.fallText, 3);
+  say(MT.fallText, true);
 }
 function updateFalling(dt0) {
   G.fT -= dt0;
@@ -1002,28 +1330,32 @@ function updateFalling(dt0) {
 const _look = new T.Vector3(), _hero = new T.Vector3(), _heroL = new T.Vector3(), _far = new T.Vector3();
 let camY = 2.7, lookX = 0;
 function updateCamera(dt0) {
-  const b = G.camBlend, t = U.uTime.value;
+  const b = G.camBlend, t = U.uTime.value, VC = VEH.cam;
   const tr = trackAt(G.dist + 34);
-  lookX = damp(lookX, lerp(G.x, tr.cx, 0.45), 4, dt0);
-  G.camX = damp(G.camX, lerp(G.x, trackAt(G.dist).cx, 0.14), 9, dt0);
-  G.camX = clamp(G.camX, G.x - 4, G.x + 4);
-  camY = damp(camY, 2.72 + G.y * 0.5, 7, dt0);
+  // En vertical la pantalla es angosta: la cámara mira menos hacia el camino y más al jugador.
+  const tallV = VIEW.aspect < 1;
+  lookX = damp(lookX, lerp(G.x, tr.cx, tallV ? 0.14 : 0.45), 4, dt0);
+  G.camX = damp(G.camX, lerp(G.x, trackAt(G.dist).cx, tallV ? 0.04 : 0.14), 9, dt0);
+  G.camX = clamp(G.camX, G.x - (tallV ? 1.4 : 4), G.x + (tallV ? 1.4 : 4));
+  camY = damp(camY, VC.y + G.y * 0.5, 7, dt0);
   G.shake *= exp(-dt0 * 6);
   const sk = G.shake * (SET.flash ? 0.34 : 0.1);
   const sx = (sin(t * 71) + sin(t * 113)) * 0.5 * sk, sy = (sin(t * 83) + sin(t * 131)) * 0.5 * sk;
-  camera.position.set(G.camX + sx, camY + sy, CAM_Z);
-  _look.set(lookX, 1.12 + G.y * 0.3, -24);
+  camera.position.set(G.camX + sx, camY + sy, VC.z);
+  _look.set(lookX, VC.lookY + G.y * 0.3, -24);
   if (b > 0.001 || G.camHero) {
     const hb = G.camHero ? 1 : b;
     // Toma baja desde el lado del mar: el sol a la izquierda, el ciclista a la derecha.
-    const sw = sin(t * 0.18) * 0.35, hx = -2.7 + sw, hz = 4.4;
-    const off = Math.atan(0.52 * Math.tan((camera.fov * PI) / 360) * VIEW.aspect);
+    // En vertical se aleja y centra, para que el protagonista quede entre el rótulo y el botón.
+    const tall = VIEW.aspect < 1, far = tall ? 1.3 : 1;
+    const sw = sin(t * 0.18) * 0.35, hx = (VC.heroX + sw) * far, hz = VC.heroZ * far;
+    const off = Math.atan((tall ? 0.1 : 0.52) * Math.tan((camera.fov * PI) / 360) * VIEW.aspect);
     const head = Math.atan2(-hx, hz) - off;
-    _hero.set(G.x + hx, 1.0, hz);
-    _heroL.set(G.x + hx + sin(head) * 10, 1.85, hz - cos(head) * 10);
+    _hero.set(G.x + hx, VC.heroY + (tall ? 0.5 : 0), hz);
+    _heroL.set(G.x + hx + sin(head) * 10, VC.heroLook + (tall ? 0.75 : 0), hz - cos(head) * 10);
     if (G.camHero) {
-      _hero.set(G.x + 6, G.y + 1.3, 6);
-      _heroL.set(G.x - 0.4, G.y + 1, -3);
+      _hero.set(G.x + VC.finish[0], G.y + VC.finish[1], VC.finish[2]);
+      _heroL.set(G.x - 0.4, G.y + 1 + (VC.y - 2.72) * 0.5, -3);
     }
     camera.position.lerp(_hero, hb);
     _look.lerp(_heroL, hb);
@@ -1037,12 +1369,11 @@ function updateCamera(dt0) {
   P.uVP.value.set(_far.x * 0.5 + 0.5, _far.y * 0.5 + 0.5);
   if (G.cutT > 0) {
     const q = clamp(1 - G.cutT / 1.2);
-    if (G.cutWhat === 'dog') {
-      cutCam.position.set(BOSS.x + lerp(1.3, 0.8, q), lerp(1.2, 1.4, q), BOSS.z - lerp(5.2, 3.9, q));
-      cutCam.lookAt(BOSS.x - 1.05, 1.62, BOSS.z - 1.1);
-    } else {
-      cutCam.position.set(G.x + lerp(-3.4, -2.3, q), G.y + 0.9, -lerp(4.8, 3.6, q));
-      cutCam.lookAt(G.x, G.y + 1.3, 0);
+    if (G.cutWhat === 'boss') BOSSK.cutView(api, cutCam, q);
+    else {
+      const far = VC.cutFar || (MT.vehicle === 'horse' ? 1.5 : 1);
+      cutCam.position.set(G.x + lerp(-3.4, -2.3, q) * far, G.y + 0.9, -lerp(4.8, 3.6, q) * far);
+      cutCam.lookAt(G.x - 1.15 * far, G.y + VC.cutH, 0.82 * far);
     }
     cutCam.updateMatrixWorld();
   }
@@ -1061,8 +1392,37 @@ function updatePost(dt0) {
   if (G.impactCool > 0) G.impactCool -= dt0;
   U.uFlash.value = G.iframes > 0 && G.state === 'play' ? (floor(G.iframes * 14) % 2) * 0.32 : 0;
 }
+// Ceniza y humo de la quema, mariposas en los potreros y cohetes sobre la feria.
+function levelFx(t, dt0) {
+  const D = G.dist;
+  if (MT.burn && D > MT.burn[0] - 50 && D < MT.burn[1] + 40) {
+    if (rnd() < dt0 * 34) fx(3, G.x + rnd(-16, 16), rnd(1, 8), rnd(-40, 2), rnd(0.03, 0.07), 1.5, [0.05, 0.04, 0.04], {add: 0, vx: rnd(-0.6, 0.6), vy: -rnd(0.5, 1.3), vz: rnd(0, 1), world: 1});
+    if (rnd() < dt0 * 12) {
+      const s = rnd() < 0.5 ? 1 : -1;
+      const x0 = LV.center(D + 40) + s * rnd(8, 15), z0 = -rnd(34, 96);
+      for (let i = 0; i < 3; i++) fx(3, x0 + rnd(-1.4, 1.4), rnd(4.5, 8), z0 + rnd(-1, 1), rnd(1.4, 2.6), 2.2, [0.17, 0.135, 0.125], {add: 0, vy: rnd(1.6, 3.2), vx: rnd(-0.4, 0.4), grow: 1.25, world: 1});
+    }
+    if (rnd() < dt0 * 14) fx(0, LV.center(D + 24) + (rnd() < 0.5 ? 1 : -1) * rnd(6, 10), rnd(0.8, 3), -rnd(10, 50), rnd(0.07, 0.15), 0.8, [2.4, 0.9, 0.2], {vy: rnd(1, 3), world: 1});
+  }
+  if (MT.id === 'taxisco' && D > LV.fair + 40 && D < LV.S1 - 60) {
+    const base = floor(D / 11);
+    for (let i = 0; i < 14; i++) {
+      const id = base + i, h = (id * 13.7) % 1, h2 = (id * 7.31) % 1, z = id * 11, c = LV.center(z);
+      tick(0, c + (h - 0.5) * 26 + sin(t * 1.3 + id) * 0.8, 0.8 + h2 * 1.9 + sin(t * 5 + id) * 0.2, -(z - D), 0.11, [1.5, 1.45, 1], 0.9);
+    }
+  }
+  if (MT.id === 'taxisco' && (D > LV.S2 + 60 || D < LV.fair + 40) && rnd() < dt0 * (D < LV.fair + 40 ? 0.9 : 0.55)) {
+    const x = G.x + rnd(-30, 30), y = rnd(14, 26), z = -rnd(60, 140), cs = [[2.6, 0.7, 0.5], [2.6, 2, 0.5], [0.6, 2.2, 2], [2.4, 0.8, 1.8]], c = pick(cs);
+    for (let i = 0; i < 18; i++) {
+      const a = rnd(0, 6.283), v = rnd(5, 11);
+      fx(0, x, y, z, 0.3, 0.8, c, {vx: cos(a) * v, vy: sin(a) * v, grav: 7, world: 1});
+    }
+    fx(0, x, y, z, 1.8, 0.22, [2.6, 2.4, 2], {world: 1});
+    if (G.state === 'play') Audio.cohete(0.3);
+  }
+}
 function fireflies(t) {
-  if (G.dist < S1 - 30 || G.dist > S2 + 30) return;
+  if (MT.id !== 'monterrico' || G.dist < LV.S1 - 30 || G.dist > LV.S2 + 30) return;
   const base = floor(G.dist / 6);
   for (let i = 0; i < 26; i++) {
     const id = base + i, h = (id * 13.7) % 1, h2 = (id * 7.31) % 1, h3 = (id * 3.17) % 1;
@@ -1090,6 +1450,7 @@ export function update(dtR) {
     dt = 0;
   }
   if (G.callT > 0) G.callT -= dt0;
+  if (G.sayT > 0) G.sayT -= dt0;
   if (G.iframes > 0) G.iframes -= dt0;
   if (G.trickCool > 0) G.trickCool -= dt0;
   if (G.cutT > 0 && G.state !== 'finish') {
@@ -1119,9 +1480,9 @@ export function update(dtR) {
       }
     }
     G.dist += G.speed * dt;
-    G.vy -= 26 * dt;
+    G.vy -= VEH.phys.grav * dt;
     G.y += G.vy * dt;
-    const deck = 1.08;
+    const deck = MT.finish.deck;
     if (G.y <= deck && G.vy < 0) {
       G.y = deck;
       G.vy = 0;
@@ -1129,8 +1490,13 @@ export function update(dtR) {
         G.landed = true;
         G.shake = 0.7;
         Audio.land(1);
-        kickPackage(3);
-        const p = screenOf(G.x, G.y + 2.6, 0);
+        VEH.kick(3);
+        G.air = false;
+        if (MT.finish.rear) {
+          G.rear = 1;
+          Audio.neigh();
+        }
+        const p = screenOf(G.x, G.y + 2.6 + (VEH.cam.y - 2.72) + (MT.finish.rear ? 1.3 : 0), 0);
         UI.call('¡CABAL!', 2, p.x, p.y);
         burst(G.x, deck, 0.2, 10, 5, 0.45, 0.16, col('uFoam'), {world: 0});
       }
@@ -1138,6 +1504,7 @@ export function update(dtR) {
     if (G.landed) {
       G.speed = damp(G.speed, 0, 3.4, dt0);
       G.landT = (G.landT || 0) + dt0;
+      if (G.landT > 1.1) G.rear = 0;
     }
     if ((G.landT > 1.5 || G.fT > 7) && G.fT < 100) {
       G.fT = 200;
@@ -1145,13 +1512,13 @@ export function update(dtR) {
     }
     updateMovers(dt, t);
   } else if (G.state === 'title' || G.state === 'results' || G.state === 'failed') {
-    G.speed = damp(G.speed, G.state === 'failed' ? 0 : G.state === 'results' ? 0 : 15, 2, dt0);
+    G.speed = damp(G.speed, G.state === 'title' ? MT.title.speed : 0, 2, dt0);
     G.dist += G.speed * dt;
     if (G.state === 'title') {
-      G.x = damp(G.x, LV.shoreBase(G.dist) + 2.1 + sin(t * 0.3) * 0.7, 3, dt0);
+      G.x = damp(G.x, MT.title.x(LV, G.dist, t), 3, dt0);
       G.steer = cos(t * 0.3) * 0.1;
-      if (G.dist > 1130) {
-        G.dist = 40;
+      if (G.dist > MT.title.D1) {
+        G.dist = MT.title.D0;
         LV.cursor = 0;
       }
     }
@@ -1161,20 +1528,37 @@ export function update(dtR) {
     U.uDist.value = G.dist;
   const bb = 0.00011;
   U.uBend.value.set(bb * sin(G.dist * 0.0037) + bb * 0.5 * sin(G.dist * 0.0081 + 1), 0.00005 * sin(G.dist * 0.0053));
-  updatePalette(G.state === 'title' ? 500 : G.dist);
+  updatePalette(G.state === 'title' ? MT.title.pal : G.dist);
   U.uLampP.value.set(G.x, -6);
   updatePhone(dt0);
   updateCamera(dt0);
   updatePost(dt0);
   fireflies(t);
+  levelFx(t, dt0);
   updateFx(dt, G.speed);
   G.sink = damp(G.sink, G.inWater && G.y <= 0.05 ? 1 : 0, 8, dt0);
-  updateBike({x: G.x, y: max(G.y, G.state === 'falling' ? -3 : 0) - G.sink * 0.2, speed: G.speed, steer: G.state === 'falling' ? 0.6 : G.steer, air: G.y > 0.03, crouch: G.sprint, brake: G.brake, pkg: G.pkg, time: t, dt: dt0, spin: G.spin, pitch: G.air ? clamp(G.vy * 0.018, -0.3, 0.3) : 0, scale: VIEW.aspect < 0.9 ? 1.05 : 1.22});
+  const spooked = G.spook > 0.55 ? 0.8 : 0;
+  VEH.update({x: G.x, y: max(G.y, G.state === 'falling' ? -3 : 0) - G.sink * VEH.phys.sink, speed: G.speed, steer: G.state === 'falling' ? 0.6 : G.steer, air: G.y > 0.03, crouch: G.sprint, brake: G.brake, pkg: G.pkg, time: t, dt: dt0, spin: G.spin, pitch: G.air ? clamp(G.vy * 0.018, -0.3, 0.3) : 0, vy: G.vy, rear: max(G.rear, spooked), pull: MT.pull ? -MT.pull.dir * ((G.pull || 0) + (G.pullWarn > 0 ? 0.35 : 0)) : 0, scale: VIEW.aspect < 0.9 ? VEH.phys.scaleV : VEH.phys.scale, onStep});
   if (G.state === 'play' && (G.uiT = (G.uiT || 0) - dt0) <= 0) {
     G.uiT = 0.08;
     UI.hud(G, LV);
   }
-  Audio.ambient(G.dist < S1 ? 1 : G.dist > LEN - 300 ? 0.5 : 0.2, G.state === 'play' ? G.speed : 0);
+  Audio.ambient(MT.ambient(G.dist, LV), G.state === 'play' ? G.speed : 0);
+}
+// Cada pisada del caballo: se oye y levanta polvo o agua.
+function onStep(i, front) {
+  if (G.state !== 'play' && G.state !== 'title') return;
+  const inGame = G.state === 'play';
+  const tr = trackAt(G.dist), wood = tr.kind === 1, stone = tr.kind === 3;
+  if (inGame) Audio.hoof(G.sprint ? 1 : 0.75, wood || stone ? 1 : 0, G.inWater);
+  const fx0 = i % 2 ? 0.2 : -0.2, z = front ? -0.5 : 0.8;
+  if (G.inWater) fx(3, G.x + fx0, 0.1, z, rnd(0.08, 0.2), 0.45, col('uFoam'), {add: 0, vx: rnd(-1.6, 1.6), vy: rnd(2.5, 6), vz: rnd(1, 5), grav: 16, world: 0.45});
+  else if (G.mudT > 0) fx(3, G.x + fx0, 0.1, z, rnd(0.08, 0.18), 0.42, col('uWet'), {add: 0, vx: rnd(-1.5, 1.5), vy: rnd(1.5, 4), vz: rnd(2, 6), grav: 15, world: 0.45});
+  else if (!wood) {
+    const c = stone || abs(G.x - tr.cx) < tr.hw ? col('uSandB') : col('uGrass');
+    // En el título la cámara está cerca: el polvo se apaga antes de llegarle a la cara.
+    fx(3, G.x + fx0, 0.1, z + 0.2, rnd(0.07, 0.16), inGame ? 0.42 : 0.22, [c[0] * 1.35, c[1] * 1.35, c[2] * 1.35], {add: 0, vx: rnd(-0.5, 0.5), vy: rnd(0.3, 1.1), vz: rnd(0.5, 2), grow: 0.42, world: 0.5});
+  }
 }
 function syncAll() {
   syncProps(LV, G.dist, U.uTime.value, G.state === 'title');
@@ -1207,6 +1591,11 @@ function bindInput() {
   const cv = $('gl');
   const KEYS = {ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down'};
   window.addEventListener('keydown', (e) => {
+    // Escribiendo el nombre del récord, las teclas no mueven el juego.
+    if (e.target && e.target.id === 'recName') {
+      if (e.key === 'Enter') saveRec();
+      return;
+    }
     const k = KEYS[e.code];
     if (k) {
       IN[k] = true;
@@ -1220,7 +1609,7 @@ function bindInput() {
         IN.jump = 0.14;
       }
     }
-    if (e.code === 'KeyB' && G.state === 'play') Audio.bell();
+    if (e.code === 'KeyB' && G.state === 'play') Audio[VEH.call()]();
     if (e.code === 'KeyP' || e.code === 'Escape') {
       if (G.state === 'play') pauseGame();
       else if (G.state === 'pause') resumeGame();
@@ -1306,9 +1695,17 @@ function bindInput() {
     UI.hideScreen('scrTitle', () => {});
     fn();
   };
-  $('btnStart').addEventListener('click', () => startFrom(newRun));
+  $('btnStart').addEventListener('click', () => startFrom(() => newRun(G.level, startQ(G.level))));
+  document.querySelectorAll('#route [data-level]').forEach((b) => b.addEventListener('click', () => pickLevel(b.dataset.level)));
   $('btnContinue').addEventListener('click', () => startFrom(continueRun));
-  $('btnBell').addEventListener('click', () => Audio.bell());
+  $('btnRecords').addEventListener('click', () => openRecords(G.level, 'title'));
+  $('btnRecBack').addEventListener('click', closeRecords);
+  $('btnRecSave').addEventListener('click', saveRec);
+  document.querySelectorAll('#recTabs [data-rec]').forEach((b) => b.addEventListener('click', () => {
+    Audio.ui();
+    showRecTab(b.dataset.rec);
+  }));
+  $('btnBell').addEventListener('click', () => Audio[VEH.call()]());
   $('btnResume').addEventListener('click', resumeGame);
   $('btnPause').addEventListener('click', pauseGame);
   $('btnRestart').addEventListener('click', () => {
@@ -1339,6 +1736,7 @@ function bindInput() {
   $('btnFix').addEventListener('click', () => {
     if (G.q < 25 || G.pkg >= 100) return;
     G.q -= 25;
+    G.spent = (G.spent || 0) + 25;
     G.pkg = min(100, G.pkg + 25);
     Audio.buy();
     renderShop();
@@ -1348,7 +1746,17 @@ function bindInput() {
     UI.hideScreen('scrResults', () => {});
     G.camHero = false;
     G.state = 'restart';
-    newRun();
+    newRun(G.level, startQ(G.level));
+  });
+  // Las propinas viajan a la siguiente parada; las mejoras se quedan con cada vehículo.
+  $('btnNext').addEventListener('click', () => {
+    Audio.ui();
+    UI.hideScreen('scrResults', () => {});
+    G.camHero = false;
+    G.state = 'restart';
+    store.set('wallet', floor(G.q));
+    G.camBlend = 1;
+    newRun(MT.nextId, floor(G.q));
   });
   $('btnResMenu').addEventListener('click', () => {
     Audio.stop();
@@ -1387,6 +1795,19 @@ function bindInput() {
   $('btnFlash').addEventListener('click', fl);
   $('btnFlashP').addEventListener('click', fl);
   syncFlash();
+  const syncVoice = () => {
+    const s = Voice.on ? 'Voces: sí' : 'Voces: no';
+    $('btnVoice').textContent = s;
+    $('btnVoiceP').textContent = s;
+  };
+  const vc = () => {
+    Voice.toggle();
+    syncVoice();
+    Audio.ui();
+  };
+  $('btnVoice').addEventListener('click', vc);
+  $('btnVoiceP').addEventListener('click', vc);
+  syncVoice();
   const rv = $('rangeVol');
   rv.value = String(Math.round(Audio.vol * 100));
   rv.addEventListener('input', () => Audio.setVol(rv.value / 100));
@@ -1406,19 +1827,12 @@ export function boot() {
     buildGround();
     buildProps();
     buildFx();
-    buildBike();
-    buildDog();
-    const markGeo = new T.PlaneGeometry(2.4, LUNGE.len);
-    markU = {uBend: U.uBend, uCamZ: U.uCamZ, uTime: U.uTime, uAmt: {value: 1}};
-    markMesh = new T.Mesh(markGeo, new T.ShaderMaterial({vertexShader: VS_MARK, fragmentShader: FS_MARK, uniforms: markU, transparent: true, depthWrite: false, depthTest: false, blending: T.CustomBlending, blendEquation: T.AddEquation, blendSrc: T.OneFactor, blendDst: T.OneMinusSrcAlphaFactor, side: T.DoubleSide}));
-    markMesh.visible = false;
-    markMesh.frustumCulled = false;
-    markMesh.renderOrder = -8;
-    scene.add(markMesh);
+    for (const k in VEHICLES) VEHICLES[k].build();
+    for (const k in BOSSES) BOSSES[k].build();
     resize();
     camera.fov = VIEW.fov;
-    LV = buildLevel(COARSE);
-    setTrackTexture(LV);
+    const saved = store.get('level', 'monterrico');
+    useLevel(LEVELS[saved] ? saved : 'monterrico');
     drawSignAtlas();
     renderer.compile(scene, camera);
   } catch (err) {
@@ -1435,9 +1849,7 @@ export function boot() {
       drawLabel();
     }, () => {});
   }
-  goTitle();
-  G.dist = 40;
-  resetScarf();
+  goTitle(G.level);
   let last = performance.now();
   const loop = (now) => {
     requestAnimationFrame(loop);
@@ -1448,7 +1860,7 @@ export function boot() {
   };
   requestAnimationFrame(loop);
   if (TEST.expose || location.hash === '#vag-debug') {
-    window.__VAG = {cam: camera, cutCam, renderer, G, IN, U, P, VIEW, BOSS, BIKE, DOG, updateDog, UI, Audio, anime, get LV() { return LV; }, frame, update, syncAll, renderFrame, newRun, startAt, pauseGame, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop,
+    window.__VAG = {cam: camera, cutCam, renderer, G, IN, U, P, VIEW, BOSS, VEHICLES, UI, Audio, Voice, anime, COP, lightAhead, startCop, get LV() { return LV; }, get MT() { return MT; }, get VEH() { return VEH; }, frame, update, syncAll, renderFrame, newRun, startAt, useLevel, pickLevel, pauseGame, openRecords, REC, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop,
       jump(D, st) {
         G.dist = D;
         G.stage = st;
@@ -1459,5 +1871,9 @@ export function boot() {
   }
 }
 function updatePaletteInit() {
+  MT = LEVELS.monterrico.META;
+  pal = palOf('monterrico');
   updatePalette(500);
 }
+// Lo que necesitan los jefes del juego.
+const api = {G, IN, BOSS, UI, Audio, LV: null, MT: null, trackAt: (D) => trackAt(D), center: (D) => LV.center(D), shout, impact, damage, burst, fx, dropShadow, queuePhone: (f, t) => queuePhone(f, t), dust: () => col('uSandB'), onCross, onGreen, fine};

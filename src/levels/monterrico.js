@@ -2,13 +2,28 @@
 import {seeded, sin, cos, abs, min, max, floor, sstep, lerp, PI} from '../core/util.js';
 
 export const META = {
-  id: 'monterrico', name: 'Monterrico', vehicle: 'Bicicleta',
-  next: 'Taxisco y Guazacapán',
+  id: 'monterrico', name: 'Monterrico', short: 'Monterrico', vehicle: 'bike', vehicleName: 'Bicicleta', ground: 'beach', stop: 1,
+  next: 'Taxisco y Guazacapán', nextId: 'taxisco', music: [0, 1, 2, 3], forceLabel: 'Fuerza', sprintWord: 'pedalear duro', callWord: 'timbre', callChip: 'Timbre',
   stages: [
     {name: 'La playa', fact: 'Arena negra de volcán. Junto al agua está dura y vas más rápido.', speed: 21, clock: 80},
     {name: 'El manglar', fact: 'Canal de Chiquimulilla. Si te salís de la pasarela, te mojás vos y el paquete.', speed: 23, clock: 72},
     {name: 'El pueblo', fact: 'Tuc-tucs, chuchos y túmulos. Frená antes de cada túmulo o saltalo.', speed: 25, clock: 70},
   ],
+  soft: {shout: '¡Las tortuguitas!', check: 'Ninguna tortuguita golpeada', keep: false},
+  boss: {id: 'dog', name: 'Terremoto', cut: '¡TERREMOTO!', sub: 'El chucho de Doña Tere'},
+  finish: {cut: '¡LA LANCHA!', sub: 'Última salida a La Avellana', arrive: 'Llegaste a la lancha', deck: 1.08},
+  shop: {title: 'Tiendita de Doña Tere', go: 'Seguir pedaleando', items: [
+    {id: 'cadena', name: 'Cadena nueva', desc: 'Pedaleás un 6% más rápido.', price: 60},
+    {id: 'frenos', name: 'Frenos de verdad', desc: 'Frenás el doble y te recuperás más rápido de los golpes.', price: 45},
+    {id: 'carton', name: 'Cartón extra', desc: 'El paquete recibe 30% menos daño.', price: 70},
+  ]},
+  share: 'Crucé Monterrico',
+  note: 'La bicicleta quedó en el muelle. Del otro lado te espera un caballo con su carácter. Sigue <b class="text-oro">Taxisco y Guazacapán</b>.',
+  title: {D0: 40, D1: 1130, pal: 500, speed: 15, x: (LV, D, t) => LV.shoreBase(D) + 2.1 + Math.sin(t * 0.3) * 0.7},
+  palGain: [1.18, 0.92, 4400], leftHills: 0, burn: null, fenceOff: 0,
+  ambient: (D, LV) => (D < LV.S1 ? 1 : D > LV.length - 300 ? 0.5 : 0.2), fallText: '¡Al agua!',
+  // Ráfagas del mar: te empujan tierra adentro, a la arena suelta.
+  pull: {from: 560, dir: 1, s: 0.6, chip: 'Viento del mar →', shout: '¡Viento del mar!', sfx: 'gust'},
 };
 export const S1 = 1500, S2 = 3000, S3 = 4500, LEN = 5400;
 const DRAW = LEN + 300;
@@ -17,6 +32,7 @@ export const CALLS_DESK = [
   {D: 25, from: 'Don Beto', t: 'Patojo, ese paquete tiene que estar en Xela mañana antes de medianoche. No lo abrás.'},
   {D: 150, from: 'Don Beto', t: 'Flechas o A y D para moverte. Espacio para saltar. ↑ pedaleás duro, ↓ frenás.'},
   {D: 400, from: 'Don Beto', t: 'Pegate a la orilla: la arena mojada es dura y vas más rápido. Pero ojo con las olas.'},
+  {D: 520, from: 'Don Beto', t: 'Cuando sople el viento del mar te va a sacar de la orilla. Pedaleá contra él.'},
   {D: 720, from: 'La Licenciada', t: '¿Ya mero, vos? Me dijeron que ya venías en camino.'},
   {D: 1120, from: 'Mamá', t: '¿Ya comiste, mijo? Te dejé tortillas con Doña Tere por si te da hambre.'},
 ];
@@ -24,6 +40,7 @@ export const CALLS_TOUCH = [
   {D: 25, from: 'Don Beto', t: 'Patojo, ese paquete tiene que estar en Xela mañana antes de medianoche. No lo abrás.'},
   {D: 150, from: 'Don Beto', t: 'Arrastrá el dedo para moverte. Con los botones saltás, pedaleás duro o frenás.'},
   {D: 400, from: 'Don Beto', t: 'Pegate a la orilla: la arena mojada es dura y vas más rápido. Pero ojo con las olas.'},
+  {D: 520, from: 'Don Beto', t: 'Cuando sople el viento del mar te va a sacar de la orilla. Pedaleá contra él.'},
   {D: 720, from: 'La Licenciada', t: '¿Ya mero, vos? Me dijeron que ya venías en camino.'},
   {D: 1120, from: 'Mamá', t: '¿Ya comiste, mijo? Te dejé tortillas con Doña Tere por si te da hambre.'},
 ];
@@ -274,8 +291,9 @@ export function buildLevel(touch) {
     },
     function holes(D, d) {
       const c = center(D);
-      [[-3, 0], [0, 13], [3, 26], [-1, 39]].forEach(([x, z]) => solid('pothole', c + x, D + z, 1.05, 0.95, 0.1, 5, {sz: 0.9, sx: 1.15}));
-      return 52;
+      // Tres hoyos con espacio para saltarlos uno por uno.
+      [[-2.6, 0], [2.4, 26], [0, 52]].forEach(([x, z]) => solid('pothole', c + x, D + z, 1.05, 0.95, 0.1, 5, {sz: 0.9, sx: 1.15}));
+      return 66;
     },
     function carts(D, d) {
       const c = center(D);

@@ -58,7 +58,12 @@ body { background: var(--noche); color: var(--crema); overflow: hidden; overscro
 #route::before { content: ""; position: absolute; left: 0; right: 0; top: .52rem; border-top: 3px dashed color-mix(in srgb, var(--crema) 70%, transparent); }
 .stop { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: .28rem; min-width: 0; padding-right: .3rem; }
 .dot { width: 1.05rem; height: 1.05rem; border-radius: 50%; background: var(--tinta); border: 3px solid var(--crema); }
-.stop[data-open="1"] .dot { background: var(--oro); border-color: var(--rojo); box-shadow: 0 0 0 3px var(--tinta); }
+button.stop { background: none; border: 0; padding: 0 .3rem .15rem 0; color: inherit; font: inherit; text-align: left; cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+button.stop .dot { background: var(--crema); border-color: var(--tinta); }
+button.stop:hover b { color: var(--oro); }
+button.stop[aria-pressed="true"] .dot { background: var(--oro); border-color: var(--rojo); box-shadow: 0 0 0 3px var(--tinta); }
+button.stop[aria-pressed="true"] b { color: var(--oro); }
+button.stop:focus-visible { outline: 3px solid var(--crema); outline-offset: 3px; }
 .stop b { font-weight: 700; font-size: clamp(.8rem, 1.5vw, 1rem); line-height: 1; text-shadow: 0 1px 0 var(--tinta), 1px 1px 0 var(--tinta), -1px 1px 0 var(--tinta); }
 .stop span { font-weight: 500; font-size: clamp(.7rem, 1.2vw, .84rem); line-height: 1; color: var(--crema); opacity: .86; text-shadow: 0 1px 0 var(--tinta), 1px 1px 0 var(--tinta); }
 
@@ -132,6 +137,11 @@ body { background: var(--noche); color: var(--crema); overflow: hidden; overscro
 #resList li[data-ok="0"] { opacity: .7; }
 .stat .v { font-weight: 800; font-style: italic; font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1; font-variant-numeric: tabular-nums; color: var(--oro); }
 input[type=range] { accent-color: var(--oro); width: min(15rem, 66vw); touch-action: pan-x; pointer-events: auto; }
+#ticket { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: clamp(7.5rem, 24%, 11rem); width: min(17rem, 62vw); padding: .55rem .8rem .7rem; background: #fdf8ea; color: var(--tinta); box-shadow: 4px 5px 0 var(--tinta); pointer-events: none; transform-origin: 80% 20%; }
+#ticket .tk-h { font-weight: 700; font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; border-bottom: 2px dashed #1b62c9; padding-bottom: .2rem; color: #1b62c9; }
+#ticket .tk-r { font-weight: 600; font-size: 1.05rem; line-height: 1.1; margin-top: .35rem; }
+#ticket .tk-q { font-family: var(--display); font-size: 1.5rem; line-height: 1.1; color: var(--rojo); margin-top: .2rem; }
+#ticketStamp { position: absolute; right: .5rem; bottom: .55rem; font-family: var(--display); font-size: 1.15rem; color: var(--rojo); border: 3px solid var(--rojo); padding: 0 .4rem; transform: rotate(-14deg); opacity: .85; }
 #toast { position: absolute; left: 50%; bottom: max(18px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: calc(100vw - 32px); padding: .4rem .85rem .5rem; background: var(--crema); color: var(--tinta); font-weight: 700; font-size: 1.05rem; line-height: 1.15; text-align: center; }
 
 /* Controles táctiles */
@@ -147,8 +157,24 @@ input[type=range] { accent-color: var(--oro); width: min(15rem, 66vw); touch-act
 }
 /* Teléfono vertical: la llamada va en el cielo, lejos de los botones. */
 @media (max-aspect-ratio: 3/4) {
-  #phone { top: clamp(11rem, 25vh, 15rem); bottom: auto; }
+  #phone { top: clamp(13.6rem, 30vh, 17rem); bottom: auto; }
 }
+/* Récords */
+.recform { display: flex; flex-direction: column; gap: .3rem; }
+#recName { font-family: var(--ui); font-weight: 700; font-size: 1.1rem; padding: .42rem .7rem; width: 12.5rem; max-width: 58vw; background: var(--crema); color: var(--tinta); border: 0; border-radius: 0; box-shadow: 3px 4px 0 var(--tinta); pointer-events: auto; touch-action: manipulation; user-select: text; -webkit-user-select: text; }
+#recName::placeholder { color: color-mix(in srgb, var(--tinta) 55%, transparent); }
+.recmsg { font-weight: 600; font-size: 1rem; min-height: 1.2em; color: var(--oro); }
+#recTabs .chip { font-size: .95rem; }
+#recTabs .chip[aria-selected="true"] { background: var(--oro); color: var(--tinta); border-color: var(--oro); }
+#recList { list-style: none; margin: 0; padding: 0; display: grid; gap: .22rem; width: min(100%, 34rem); min-height: 2rem; }
+#recList li { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) auto 3.2rem 3.6rem; align-items: center; gap: .55rem; padding: .28rem .6rem .34rem; background: color-mix(in srgb, var(--tinta) 84%, transparent); font-weight: 600; font-size: 1.05rem; line-height: 1.1; }
+#recList li[data-me="1"] { box-shadow: inset 0 0 0 2px var(--oro); }
+#recList .rp { font-family: var(--display); font-weight: 400; color: var(--rojo); font-size: 1.15rem; }
+#recList li:first-child .rp { color: var(--oro); }
+#recList .rn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#recList .rs { color: var(--oro); font-size: .9rem; letter-spacing: .04em; }
+#recList .rs i { font-style: normal; color: color-mix(in srgb, var(--crema) 28%, transparent); }
+#recList .rt, #recList .rq { text-align: right; font-variant-numeric: tabular-nums; }
 /* Teléfono acostado: todo tiene que caber en poca altura. */
 @media (max-height: 480px) {
   #scrTitle .legend.only-touch, #scrTitle .legend.only-desk { display: none; }
@@ -171,8 +197,14 @@ input[type=range] { accent-color: var(--oro); width: min(15rem, 66vw); touch-act
   #cardName { font-size: 1.2rem; }
   #cardFact { font-size: .92rem; }
   #card { top: 4.9rem; }
+  #recList { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: .5rem; width: 100%; }
+  #recList li { padding: .14rem .5rem .18rem; font-size: .9rem; }
+  #recName { font-size: 1rem; padding: .3rem .6rem; }
+  .recform .lab { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn { transition: none; }
   #hudClockBox[data-low="1"] { animation: none; }
 }
+/* En vertical la boleta va abajo a la derecha, lejos del rótulo de etapa y de las llamadas. */
+@media (max-aspect-ratio: 1/1) { #ticket { top: auto; bottom: clamp(10rem, 28vh, 14rem); width: min(15rem, 64vw); } }
