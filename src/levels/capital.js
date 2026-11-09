@@ -14,7 +14,7 @@ const LIGHTS = [
 
 export const META = {
   id: 'capital', name: 'Ciudad de Guatemala', short: 'la capital', vehicle: 'bus', vehicleName: 'Camioneta', ground: 'city', stop: 3,
-  next: 'Antigua', nextId: null, music: [8, 9, 10, 11], forceLabel: 'Motor', sprintWord: 'acelerar', callWord: 'pito', callChip: 'Pito',
+  next: 'Antigua', nextId: 'antigua', music: [8, 9, 10, 11], forceLabel: 'Motor', sprintWord: 'acelerar', callWord: 'pito', callChip: 'Pito',
   stages: [
     {name: 'Calzada Roosevelt', fact: 'Pasarse un semáforo en rojo cuesta Q200 de multa en la vida real. Aquí, además, te sigue la PMT.', speed: 25, clock: 100},
     {name: 'El Periférico', fact: 'Se empezó a planificar en 1952. El Puente El Incienso completó la conexión.', speed: 29, clock: 86},
@@ -29,7 +29,7 @@ export const META = {
     {id: 'carton', name: 'Lazo nuevo en la parrilla', desc: 'El paquete recibe 30% menos daño.', price: 70},
   ]},
   share: 'Crucé la capital',
-  note: 'Don Chus recuperó su camioneta, con un espejo menos. El paquete sigue para <b class="text-oro">Antigua</b>, en tuc-tuc, pronto.',
+  note: 'Don Chus recuperó su camioneta, con un espejo menos. El paquete sigue para <b class="text-oro">Antigua</b>, en tuc-tuc.',
   title: {D0: 60, D1: 1900, pal: 300, speed: 15, x: (LV, D, t) => LV.center(D) + 3.6 + 0.5 * sin(t * 0.3)},
   palGain: [1.04, 1, 7000], leftHills: 1, burn: null, fenceOff: 0,
   ambient: () => 0.32, fallText: '¡Aaay!',

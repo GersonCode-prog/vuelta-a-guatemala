@@ -6,6 +6,8 @@ import {VS_CEL, FS_CEL, VS_HULL, FS_HULL, VS_SHADOW, FS_SHADOW, VS_SIGN, FS_SIGN
 import {PI, TAU, cos, sin, floor, min, max, seeded, lerp, MOBILE} from '../core/util.js';
 import {FARM_SPEC, buildWheel, syncWheel} from './props-farm.js';
 import {CITY_SPEC} from './props-city.js';
+import {ANTIGUA_SPEC} from './props-antigua.js';
+import {ATITLAN_SPEC} from './props-atitlan.js';
 
 const C = {
   trunk: hex('#6d4a33'), trunkD: hex('#3f2a22'), leaf: hex('#2f8f4e'), leafD: hex('#1e6b45'), coco: hex('#5c3f22'), cocoG: hex('#6fae3a'),
@@ -432,7 +434,7 @@ export function buildProps() {
   const uni = celUni();
   const mat = new T.ShaderMaterial({vertexShader: VS_CEL, fragmentShader: FS_CEL, uniforms: uni});
   const hullMat = new T.ShaderMaterial({vertexShader: VS_HULL, fragmentShader: FS_HULL, uniforms: uni, side: T.BackSide});
-  Object.assign(SPEC, FARM_SPEC, CITY_SPEC);
+  Object.assign(SPEC, FARM_SPEC, CITY_SPEC, ANTIGUA_SPEC, ATITLAN_SPEC);
   buildWheel();
   for (const name in SPEC) {
     const [fn, cap, sh, noHull] = SPEC[name];
@@ -503,7 +505,7 @@ export function syncProps(level, dist, time, decorOnly) {
   for (let i = level.cursor; i < items.length; i++) {
     const it = items[i];
     if (it.D > dist + VIEW_D) break;
-    if (it.gone || (decorOnly && !it.decor)) continue;
+    if (it.gone || it.hidden || (decorOnly && !it.decor)) continue;
     // En teléfono se dibuja la mitad del follaje: se nota poco y rinde mucho.
     if (MOBILE && i % 2 && (it.t === 'mangrove' || it.t === 'reed' || it.t === 'palm' || it.t === 'tuft' || it.far)) continue;
     drawItem(it, dist, time, camX, camY, camZ);
@@ -558,6 +560,11 @@ function drawItem(it, dist, time, camX, camY, camZ) {
   if (it.rotV) r += time * it.rotV;
   let sy = it.sy || it.s || 1, name = it.t;
   if (it.flick) sy *= 0.82 + 0.26 * Math.sin(time * 9 + it.D) + 0.12 * Math.sin(time * 23 + it.x);
+  // Las olas suben y bajan despacio.
+  if (it.bob) {
+    sy *= 1 + 0.14 * Math.sin(time * 2.1 + it.D * 0.7);
+    y += 0.04 * Math.sin(time * 1.7 + it.D);
+  }
   // Los que caminan alternan entre dos cuadros.
   if (it.walk && floor(time * it.walk + it.D) % 2) name = it.t + 'B';
   put(name, x, y, z, r, it.sx || it.s || 1, sy, it.sz || it.s || 1, t[0], t[1], t[2], it.flash || 0);
@@ -579,25 +586,38 @@ const SIGNS = [
   ['Ferretería El Clavo', '#1b62c9', '#fff3d6'], ['Licuados Mary', '#ff5d7d', '#fff3d6'], ['Taller El Pistón', '#1a1416', '#ffc91f'], ['Hotel Colonial', '#6e4726', '#fff3d6'],
   ['Café La Sexta', '#2d6b52', '#fff3d6'], ['Respete el semáforo', '#e3262f', '#fff3d6'], ['Parada de bus', '#1b62c9', '#fff3d6'], ['Hombres trabajando', '#ff7a1a', '#1a1416'],
   ['Pinchazos Don Memo', '#1a1416', '#fff3d6'], ['Panadería La Espiga', '#fff3d6', '#6e4726'], ['Shucos', '#e3262f', '#fff3d6'], ['Cuidado: túmulo', '#ffc91f', '#1a1416'],
+  ['LA ANTIGUA GUATEMALA', '#c7861a', '#fff6e6'], ['Curva peligrosa', '#ffc91f', '#1a1416'], ['Neblina: despacio', '#ffc91f', '#1a1416'], ['Derrumbe', '#ff7a1a', '#1a1416'],
+  ['Fresas Q10', '#e3262f', '#fff3d6'], ['Antigua 8 km', '#1f6b3a', '#fff3d6'], ['Calle del Arco', '#2d6b52', '#fff3d6'], ['Chocobananos Doña Choco', '#5a2e1a', '#ffd84a'],
+  ['Tejidos Típicos', '#d8263c', '#fff6e6'], ['Café La Ceiba', '#2d6b52', '#fff3d6'], ['Jade y Plata', '#1f6b3a', '#fff3d6'], ['Posada El Portal', '#6e4726', '#fff3d6'],
+  ['Helados Doña Rosa', '#ff5d7d', '#fff3d6'], ['Dulces Típicos', '#ffc91f', '#6e4726'], ['Artesanías Chapinas', '#7a3fb0', '#ffc91f'], ['Hotel Las Bugambilias', '#d6338a', '#fff6e6'],
+  ['Silencio: procesión', '#5b2a86', '#fff6e6'], ['PARQUE CENTRAL', '#2d6b52', '#fff3d6'],
+  ['PANAJACHEL', '#1b62c9', '#fff3d6'], ['MUELLE PÚBLICO', '#12b5b0', '#fff3d6'], ['SANTA CRUZ LA LAGUNA', '#2d6b52', '#fff3d6'], ['TZUNUNÁ', '#2d6b52', '#fff3d6'],
+  ['SAN MARCOS LA LAGUNA', '#2d6b52', '#fff3d6'], ['CERRO TZANKUJIL', '#6e4726', '#fff3d6'], ['SAN JUAN LA LAGUNA', '#2d6b52', '#fff3d6'], ['SAN PEDRO LA LAGUNA', '#1b62c9', '#ffc91f'],
+  ['Kayaks Q50', '#ff7a1a', '#fff3d6'], ['Hotel Los Volcanes', '#6e4726', '#fff3d6'], ['Comedor La Orilla', '#ffc91f', '#1a1416'], ['Tienda del Muelle', '#e3262f', '#fff3d6'],
+  ['Tejidos de San Juan', '#d8263c', '#fff6e6'], ['¡Cuidemos el lago!', '#2bae56', '#fff3d6'], ['Café de San Pedro', '#5a2e1a', '#ffd84a'], ['Clases de español', '#7a3fb0', '#fff3d6'],
 ];
 // Proporción con la que se muestra cada letrero. La fila del atlas es de 16:1, así que la letra
 // se dibuja estirada para que en el letrero se vea con su forma real.
 const SIGN_ASPECT = {'¡AGUAS!': 3.3, 'EL MANGLAR': 8.4, 'MUELLE': 8.3, 'Lanchas a La Avellana': 8.2, 'BIENVENIDOS AL PUEBLO': 8.4, 'CAÑAVERALES': 8.4, 'FERIA DE GUAZACAPÁN': 8.4, 'TERMINAL DE BUSES': 8.4, 'BIENVENIDOS A TAXISCO': 8.4, 'FERIA DE TAXISCO': 8.4,
-  'CALZADA ROOSEVELT': 6.4, 'ANILLO PERIFÉRICO': 6.4, 'PUENTE EL INCIENSO': 6.4, 'ZONA 1 · CENTRO': 6.4, 'El Trébol': 4.6, 'Respete el semáforo': 6.2, 'Shucos': 3.4};
+  'CALZADA ROOSEVELT': 6.4, 'ANILLO PERIFÉRICO': 6.4, 'PUENTE EL INCIENSO': 6.4, 'ZONA 1 · CENTRO': 6.4, 'El Trébol': 4.6, 'Respete el semáforo': 6.2, 'Shucos': 3.4,
+  'LA ANTIGUA GUATEMALA': 10.4, 'Calle del Arco': 5.2, 'PARQUE CENTRAL': 6.4, 'Derrumbe': 4.2, 'Fresas Q10': 4.2,
+  'PANAJACHEL': 6.6, 'MUELLE PÚBLICO': 7.8, 'SANTA CRUZ LA LAGUNA': 11, 'TZUNUNÁ': 6.6, 'SAN MARCOS LA LAGUNA': 11, 'CERRO TZANKUJIL': 8.9, 'SAN JUAN LA LAGUNA': 11, 'SAN PEDRO LA LAGUNA': 11};
+// El atlas va en dos columnas para que no pase de 4096 px de alto en ningún teléfono.
+const SIGN_COLS = 2;
 export function drawSignAtlas() {
   const cv = signTex ? signTex.image : document.createElement('canvas');
-  const rows = SIGNS.length, h = 64;
-  cv.width = 1024;
+  const rows = Math.ceil(SIGNS.length / SIGN_COLS), h = 64;
+  cv.width = 1024 * SIGN_COLS;
   cv.height = rows * h;
   const x = cv.getContext('2d');
   x.clearRect(0, 0, cv.width, cv.height);
   SIGNS.forEach(([t, bg, fg], i) => {
-    const y = i * h;
+    const y = Math.floor(i / SIGN_COLS) * h, ox = (i % SIGN_COLS) * 1024;
     x.fillStyle = bg;
-    x.fillRect(4, y + 3, 1016, h - 6);
+    x.fillRect(ox + 4, y + 3, 1016, h - 6);
     x.strokeStyle = fg;
     x.lineWidth = 3;
-    x.strokeRect(10, y + 9, 1004, h - 18);
+    x.strokeRect(ox + 10, y + 9, 1004, h - 18);
     x.fillStyle = fg;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
@@ -610,7 +630,7 @@ export function drawSignAtlas() {
       x.font = '400 ' + px + 'px "Shrikhand","Arial Black",Impact,sans-serif';
     }
     x.save();
-    x.translate(512, y + h / 2 + 2);
+    x.translate(ox + 512, y + h / 2 + 2);
     x.scale(stretch, 1);
     x.fillText(t, 0, 0);
     x.restore();
@@ -641,14 +661,14 @@ export function drawSignAtlas() {
 function syncSigns(level, dist, decorOnly) {
   if (!signMesh) return;
   let n = 0;
-  const rows = SIGNS.length;
+  const rows = Math.ceil(SIGNS.length / SIGN_COLS);
   for (const s of level.signs) {
     if (s.D < dist - 10 || s.D > dist + VIEW_D) continue;
     if (n >= signAttr.cap) break;
     if (decorOnly && !s.decor) continue;
     const i = signMap[s.text] || 0;
     signAttr.iP.setXYZW(n, s.x, s.y, -(s.D - dist), 0);
-    signAttr.iUv.setXYZW(n, 0, 1 - (i + 1) / rows, 1, 1 / rows);
+    signAttr.iUv.setXYZW(n, (i % SIGN_COLS) / SIGN_COLS, 1 - (Math.floor(i / SIGN_COLS) + 1) / rows, 1 / SIGN_COLS, 1 / rows);
     signAttr.iS.setXY(n, s.w, s.h);
     n++;
   }

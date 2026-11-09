@@ -3,7 +3,7 @@
 // (las reglas de la tabla no permiten editar ni borrar).
 const URL = 'https://vvazgkziqvzdkosnpoiu.supabase.co/rest/v1/records';
 const KEY = 'sb_publishable_QD4FoCopCMMZG96Cf_SWfg_UTYIFU0-';
-export const LEVEL_IDS = ['monterrico', 'taxisco', 'capital'];
+export const LEVEL_IDS = ['monterrico', 'taxisco', 'capital', 'antigua', 'atitlan'];
 
 const headers = (extra = {}) => Object.assign({apikey: KEY}, extra);
 async function call(url, opts = {}, ms = 9000) {

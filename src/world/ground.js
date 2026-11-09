@@ -1,7 +1,7 @@
 // Suelo único: un shader por tipo de nivel decide qué se pinta según la pista.
 import * as T from 'three';
 import {scene, U} from '../core/gfx.js';
-import {VS_GROUND, FS_GROUND, FS_GROUND_FARM, FS_GROUND_CITY} from '../core/shaders.js';
+import {VS_GROUND, FS_GROUND, FS_GROUND_FARM, FS_GROUND_CITY, FS_GROUND_COLONIAL, FS_GROUND_LAKE} from '../core/shaders.js';
 
 let mesh, mats, trackTex;
 export function buildGround() {
@@ -25,11 +25,13 @@ export function buildGround() {
   g.setAttribute('position', new T.BufferAttribute(pos, 3));
   g.setIndex(idx);
   const uni = {};
-  ['uBend','uCamZ','uTrack','uDist','uLen','uTime','uFogA','uFogB','uNight','uSurge0','uSurge1','uSunDir','uSunCol','uShade','uFog','uInk','uSkyTop','uSkyMid','uSkyLow','uSandA','uSandB','uWet','uWaterA','uWaterB','uFoam','uPlank','uStreet','uGrass','uLampC','uLampP','uBurn'].forEach((k) => (uni[k] = U[k]));
+  ['uBend','uCamZ','uTrack','uDist','uLen','uTime','uFogA','uFogB','uNight','uSurge0','uSurge1','uSunDir','uSunCol','uShade','uFog','uInk','uSkyTop','uSkyMid','uSkyLow','uSandA','uSandB','uWet','uWaterA','uWaterB','uFoam','uPlank','uStreet','uGrass','uLampC','uLampP','uBurn','uLake','uHill','uHill2'].forEach((k) => (uni[k] = U[k]));
   mats = {
     beach: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND, uniforms: uni, side: T.DoubleSide}),
     farm: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_FARM, uniforms: uni, side: T.DoubleSide}),
     city: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_CITY, uniforms: uni, side: T.DoubleSide}),
+    colonial: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_COLONIAL, uniforms: uni, side: T.DoubleSide}),
+    lake: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_LAKE, uniforms: uni, side: T.DoubleSide}),
   };
   mesh = new T.Mesh(g, mats.beach);
   mesh.frustumCulled = false;

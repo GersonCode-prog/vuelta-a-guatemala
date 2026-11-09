@@ -8,13 +8,18 @@ import {UI, anime} from './core/ui.js';
 import {buildProps, syncProps, dropShadow, setShadowLen, drawSignAtlas} from './world/props.js';
 import {buildGround, setGround, setTrackTexture} from './world/ground.js';
 import {buildFx, fx, tick, burst, updateFx, syncFx, clearFx, clearTicks} from './world/fx.js';
+import {buildWake, updateWake, resetWake} from './world/wake.js';
 import {drawLabel} from './vehicles/rider.js';
 import {BIKE_V} from './vehicles/bicycle.js';
 import {HORSE_V} from './vehicles/horse.js';
 import {BUS_V, exhaustTip} from './vehicles/bus.js';
+import {TUK_V} from './vehicles/tuctuc.js';
+import {LANCHA_V} from './vehicles/lancha.js';
 import {dogBoss} from './bosses/dog.js';
 import {bullBoss} from './bosses/bull.js';
 import {rivalBoss} from './bosses/rival.js';
+import {chocoBoss} from './bosses/choco.js';
+import {xocomilBoss} from './bosses/xocomil.js';
 import {updateTraffic, resetTraffic, lightAhead, startCop, copOff, COP} from './world/traffic.js';
 import {LEVELS, ORDER} from './levels/index.js';
 import {fetchTop, saveRecord, checkName, plausible} from './core/records.js';
@@ -24,8 +29,8 @@ export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, st
 export const IN = {left: false, right: false, up: false, down: false, jump: 0, stick: 0, stickOn: false, mouse: false, touchId: null, startX: 0, pedalBtn: false, brakeBtn: false};
 const SET = {flash: store.get('flash', !REDUCED)};
 // El juego no sabe de bicicletas ni caballos: habla con el vehículo y el jefe del nivel actual.
-const VEHICLES = {bike: BIKE_V, horse: HORSE_V, bus: BUS_V};
-const BOSSES = {dog: dogBoss, bull: bullBoss, rival: rivalBoss};
+const VEHICLES = {bike: BIKE_V, horse: HORSE_V, bus: BUS_V, tuk: TUK_V, lancha: LANCHA_V};
+const BOSSES = {dog: dogBoss, bull: bullBoss, rival: rivalBoss, choco: chocoBoss, xocomil: xocomilBoss};
 let LV = null, DEF = null, MT = null, VEH = BIKE_V, BOSSK = dogBoss, pal = null, currentLevel = null;
 const BOSS = {on: false, mode: 'off', side: 1, z: 0.7, x: 0, x0: 0, xEnd: 0, t: 0, next: 3, count: 0, aim: 0, eatT: 0, hitDone: false};
 
@@ -72,8 +77,9 @@ function updatePalette(D) {
   U.uSunCol.value.multiplyScalar(gain);
   const el = lerp(A.sunEl, B.sunEl, t), nig = lerp(A.night, B.night, t);
   U.uNight.value = nig;
-  U.uSunVis.value.set(-0.36, el, -1).normalize();
-  U.uSunDir.value.set(-0.52, 0.42 + el * 0.8 + nig * 0.2, -0.32 + nig * 0.1).normalize();
+  const sx = MT.sunAz === undefined ? -0.36 : MT.sunAz;
+  U.uSunVis.value.set(sx, el, -1).normalize();
+  U.uSunDir.value.set(sx > 0 ? 0.52 : -0.52, 0.42 + el * 0.8 + nig * 0.2, -0.32 + nig * 0.1).normalize();
   setShadowLen(lerp(A.shadow, B.shadow, t));
   U.uShadowA.value = lerp(A.shadowA, B.shadowA, t);
   U.uLampC.value.setRGB(1, 0.84, 0.56).multiplyScalar(nig * 0.95);
@@ -105,6 +111,9 @@ function say(text, hard) {
   Voice.speak('Repartidor', text, {ch: 'shout', chain: 'direct', maxDur: 0.95, gain: 1.3});
 }
 const col = (u) => [U[u].value.r, U[u].value.g, U[u].value.b];
+// En el lago no hay polvo: todo lo que salpica es espuma.
+const LAKE = () => MT.look === 'lake';
+const dust = () => col(LAKE() ? 'uFoam' : 'uSandB');
 function damage(n) {
   const k = 1 - G.up.carton * 0.3;
   G.pkg = max(0, G.pkg - n * k);
@@ -152,6 +161,18 @@ function crash(it) {
     G.racha = 1;
     shout(MT.soft.shout, 3);
     say(MT.soft.shout, true);
+    if (MT.soft.ruin) {
+      it.solid = false;
+      it.soft = false;
+      it.tint = [0.58, 0.52, 0.48];
+      G.iframes = 0.5;
+      G.shake = 0.35;
+      Audio.land(1);
+      const cs = MT.soft.bits || [[0.42, 0.17, 0.6], [1, 0.82, 0.23], [0.9, 0.23, 0.23], [0.21, 0.66, 0.31], [1, 0.96, 0.9]];
+      if (MT.soft.call && G.turtles === 1) queuePhone(MT.soft.call[0], MT.soft.call[1]);
+      for (let i = 0; i < 18; i++) fx(3, G.x + rnd(-1, 1), 0.15, rnd(-0.5, 1), rnd(0.05, 0.11), 0.7, pick(cs), {add: 0, vx: rnd(-4, 4), vy: rnd(1, 4), vz: rnd(-1, 4), grav: 12, world: 0.6});
+      return;
+    }
     if (MT.soft.keep) {
       G.iframes = 0.7;
       G.shake = 0.5;
@@ -237,7 +258,7 @@ function near(it, gap) {
   G.clock += bonus;
   const dx = it.x - G.x;
   if (tier > 0 || G.callT <= 0) {
-    const w = tier === 0 ? '¡Cerquita!' : tier === 1 ? pick(['¡Púchica!', '¡Uy!']) : pick(['¡A la gran!', '¡Cabal!']);
+    const w = it.nearShout || (tier === 0 ? '¡Cerquita!' : tier === 1 ? pick(['¡Púchica!', '¡Uy!']) : pick(['¡A la gran!', '¡Cabal!']));
     shout(w, tier);
     if (tier === 2 && !Voice.busy('call')) say(w);
     G.callT = 0.35;
@@ -297,6 +318,18 @@ function pickup(it) {
     shout('¡Un shuco!', 1);
     Audio.pickup();
     burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [1, 0.7, 0.35], {add: 0});
+  } else if (it.pick === 'choco') {
+    G.clock += 5;
+    UI.floatTime('+5 s', true);
+    shout('¡Un chocobanano!', 1);
+    Audio.pickup();
+    burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [0.9, 0.6, 0.3], {add: 0});
+  } else if (it.pick === 'cafe') {
+    G.clock += 5;
+    UI.floatTime('+5 s', true);
+    shout('¡Un cafecito!', 1);
+    Audio.pickup();
+    burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [0.95, 0.5, 0.35], {add: 0});
   } else if (it.pick === 'tortilla') {
     Audio.pickup();
     if (BOSSK.onPick) BOSSK.onPick(api, it);
@@ -343,8 +376,11 @@ function useLevel(id) {
   api.MT = MT;
   if (currentLevel !== id) {
     currentLevel = id;
-    setGround(MT.ground);
+    setGround(MT.look || MT.ground);
     setTrackTexture(LV);
+    U.uAgua.value.set(MT.agua ? MT.agua[0] : 0, MT.agua ? MT.agua[1] : 0.2, MT.agua ? MT.agua[2] : 0.5, MT.agua ? 1 : 0);
+    U.uFogA.value = 90;
+    U.uLake.value.set(MT.look === 'lake' ? 1 : 0, 0, 0, 0);
     U.uLeftHills.value = MT.leftHills;
     U.uBurn.value.set(MT.burn ? MT.burn[0] : -1000, MT.burn ? MT.burn[1] : -1000);
     U.uFogB.value = MT.ground === 'farm' ? 340 : MT.ground === 'city' ? 330 : 300;
@@ -371,6 +407,7 @@ function startAt(snap) {
   document.getElementById('fxCalls').innerHTML = '';
   $('phone').hidden = true;
   G.camHero = false;
+  resetWake();
   for (const c of LV.calls) if (c.D < snap.dist + 20) c.done = true;
   for (const s of LV.surges) if (s.D < snap.dist) s.started = s.done = true;
   for (const c of LV.customers) if (c.D < snap.dist) c.done = true;
@@ -838,6 +875,8 @@ function updateMovers(dt, t) {
       m.x += m.vx * dt;
     } else if (m.kind === 'traffic') {
       m.D += m.vD * dt;
+      const dm = m.D - G.dist;
+      if (m.smoke && dm > 6 && dm < 120 && rnd() < dt * 9) fx(3, m.x + rnd(-0.4, 0.4), rnd(1.5, 2.1), -(dm - 2.8), rnd(0.07, 0.13), 1.4, [0.95, 0.92, 0.98], {add: 0, vx: rnd(-0.3, 0.3), vy: rnd(0.5, 1.1), vz: rnd(-0.3, 0.3), grow: 1.25, world: 1});
     } else if (m.kind === 'weave') {
       // Motos que van zigzagueando entre carriles
       m.D += m.vD * dt;
@@ -893,6 +932,17 @@ function collide(it, prev) {
     else if (gap >= 0 && gap < 0.85 && G.y < 1.4 && it.h > 0.25 && !it.soft && it.kind !== 'heron') near(it, gap);
   }
 }
+// Estela de la lancha: dos brazos de espuma que se abren detrás, la espuma del motor y, acelerando, el rocío de la proa.
+function lakeWake(dt0) {
+  if (G.y > 0.05) return;
+  const sp = G.speed, c = col('uFoam'), sx = G.x - 0.3 * G.steer;
+  // Gotitas que tira la hélice; la estela misma es una cinta sobre el agua (wake.js).
+  if (rnd() < dt0 * sp * 0.35) fx(3, sx + rnd(-0.25, 0.25), 0.15, 2.6, rnd(0.05, 0.1), 0.5, c, {add: 0, vx: rnd(-0.6, 0.6), vy: rnd(1, 2.4), vz: rnd(1, 3), grav: 12, world: 0.6});
+  if ((G.sprint || G.rough) && rnd() < dt0 * 16) {
+    const s = rnd() < 0.5 ? -1 : 1;
+    fx(3, G.x + s * 0.55, 0.3, -1.1, rnd(0.06, 0.12), 0.45, c, {add: 0, vx: s * rnd(2, 3.5), vy: rnd(2, 3.6), vz: rnd(0, 2), grav: 14, world: 0.5});
+  }
+}
 function updatePlay(dt, dt0, t) {
   const prev = G.dist;
   const st = MT.stages[G.stage], PH = VEH.phys;
@@ -900,6 +950,7 @@ function updatePlay(dt, dt0, t) {
   const time = U.uTime.value;
   let sh = 0;
   G.hard = G.soft = G.inWater = G.road = false;
+  G.rough = 0;
   G.chip = '';
   // Velocidad objetivo
   let mul = 1;
@@ -928,6 +979,13 @@ function updatePlay(dt, dt0, t) {
         }
       }
     }
+  } else if (MT.surface && G.y <= 0.05 && MT.surface(G.x - tr.cx, tr, G.dist)) {
+    // Antigua: las lajas del centro corren más que el empedrado, que además sacude.
+    const sf = MT.surface(G.x - tr.cx, tr, G.dist);
+    mul = sf.mul;
+    G.chip = sf.chip || '';
+    G.hard = !!sf.fast;
+    G.rough = sf.rough || 0;
   } else if (tr.kind === 0 && MT.ground === 'beach') {
     sh = shoreAt(G.dist, tr.base, time);
     const ds = sh - G.x;
@@ -987,7 +1045,7 @@ function updatePlay(dt, dt0, t) {
       IN.jump = 0;
       Audio.jump();
       VEH.kick(0.5);
-      burst(G.x, 0.1, 0.4, 4, 3, 0.3, 0.13, col('uSandB'), {world: 0.8});
+      burst(G.x, 0.1, 0.4, LAKE() ? 8 : 4, 3, 0.3, 0.13, dust(), {world: 0.8});
     } else if (G.y > 0.35 && !G.trickOn && !G.trickDone) {
       // Si ya casi aterriza, el toque queda guardado para el próximo salto.
       const left = (G.vy + sqrt(max(0, G.vy * G.vy + 2 * PH.grav * G.y))) / PH.grav;
@@ -1033,9 +1091,10 @@ function updatePlay(dt, dt0, t) {
         G.air = false;
         G.spin = 0;
         G.trickDone = false;
-        Audio.land(hard ? 1 : 0.65);
+        if (LAKE()) Audio.splash();
+        else Audio.land(hard ? 1 : 0.65);
         VEH.kick(hard ? 2.4 : 1.2);
-        burst(G.x, 0.1, 0.3, hard ? 9 : 5, 4, 0.4, 0.16, col('uSandB'), {world: 0.8});
+        burst(G.x, 0.1, 0.3, LAKE() ? (hard ? 16 : 10) : hard ? 9 : 5, LAKE() ? 5 : 4, 0.4, 0.16, dust(), {world: 0.8});
         if (G.trickOn) {
           G.trickOn = false;
           if (G.trick < 0.8) {
@@ -1081,6 +1140,25 @@ function updatePlay(dt, dt0, t) {
     if (u.used) continue;
     if (prev < u.D && G.dist >= u.D) {
       u.used = true;
+      // Ola de lado a lado: si no la brincás, te levanta y moja el paquete.
+      if (u.ola) {
+        if (G.y < 0.3) {
+          G.vy = 4.2;
+          G.y = 0.02;
+          G.air = true;
+          G.shake = 0.5;
+          G.speed *= 0.82;
+          G.racha = 1;
+          VEH.kick(2.4);
+          shout('¡Golpe de ola!', 3);
+          say('¡Golpe de ola!', true);
+          Audio.splash();
+          burst(G.x, 0.4, 0.2, 12, 5, 0.5, 0.18, col('uFoam'), {world: 0.6, add: 0});
+          UI.floatTime('−' + ceil(4 * (1 - G.up.carton * 0.3)) + '% paquete', false);
+          damage(4);
+        } else jumpOver();
+        continue;
+      }
       if (G.y < 0.3) {
         if (G.speed > 15.5) {
           G.vy = 5.6;
@@ -1109,9 +1187,11 @@ function updatePlay(dt, dt0, t) {
     if (abs(dx) > lim) {
       G.x = tr2.cx + Math.sign(dx) * lim;
       G.speed = max(G.speed * (1 - dt * 1.4), min(G.speed, 11));
-      if (rnd() < dt0 * 30) fx(3, G.x + Math.sign(dx) * 0.9, rnd(0.3, 1.2), rnd(0.5, 6), 0.08, 0.22, [1.8, 1.3, 0.5], {add: 1, vx: Math.sign(dx) * rnd(1, 4), vy: rnd(1, 4), vz: rnd(2, 8), grav: 14, world: 0.5});
+      if (LAKE()) {
+        if (rnd() < dt0 * 24) fx(3, G.x + Math.sign(dx) * 0.8, 0.2, rnd(-0.5, 1.5), rnd(0.08, 0.16), 0.5, col('uFoam'), {add: 0, vx: Math.sign(dx) * rnd(1, 3), vy: rnd(1.5, 3.5), vz: rnd(1, 4), grav: 14, world: 0.5});
+      } else if (rnd() < dt0 * 30) fx(3, G.x + Math.sign(dx) * 0.9, rnd(0.3, 1.2), rnd(0.5, 6), 0.08, 0.22, [1.8, 1.3, 0.5], {add: 1, vx: Math.sign(dx) * rnd(1, 4), vy: rnd(1, 4), vz: rnd(2, 8), grav: 14, world: 0.5});
       if (G.callT <= 0 && G.speed > 14) {
-        shout('¡Raspón!', 0);
+        shout(LAKE() ? '¡Las boyas!' : '¡Raspón!', 0);
         G.callT = 2.5;
       }
     }
@@ -1148,6 +1228,7 @@ function updatePlay(dt, dt0, t) {
     }
   }
   if (G.sprint && rnd() < dt0 * 16) fx(3, G.x, rnd(0.4, 1.2), 0.6, 0.04, 0.2, [1.5, 1.4, 1], {add: 1, vz: 10, world: 0.5});
+  if (LAKE()) lakeWake(dt0);
   // Humo negro del escape cuando la camioneta acelera; y el "psst" de los frenos de aire al parar.
   if (MT.vehicle === 'bus') {
     if (G.sprint && rnd() < dt0 * 20) {
@@ -1370,7 +1451,11 @@ function updateCamera(dt0) {
   if (G.cutT > 0) {
     const q = clamp(1 - G.cutT / 1.2);
     if (G.cutWhat === 'boss') BOSSK.cutView(api, cutCam, q);
-    else {
+    else if (VC.cut) {
+      const c = VIEW.aspect < 1 ? VC.cut.t : VC.cut.w, k = lerp(1.1, 0.97, q);
+      cutCam.position.set(G.x + c[3] + (c[0] - c[3]) * k, G.y + c[4] + (c[1] - c[4]) * k, c[5] + (c[2] - c[5]) * k);
+      cutCam.lookAt(G.x + c[3], G.y + c[4], c[5]);
+    } else {
       const far = VC.cutFar || (MT.vehicle === 'horse' ? 1.5 : 1);
       cutCam.position.set(G.x + lerp(-3.4, -2.3, q) * far, G.y + 0.9, -lerp(4.8, 3.6, q) * far);
       cutCam.lookAt(G.x - 1.15 * far, G.y + VC.cutH, 0.82 * far);
@@ -1489,7 +1574,8 @@ export function update(dtR) {
       if (!G.landed) {
         G.landed = true;
         G.shake = 0.7;
-        Audio.land(1);
+        if (LAKE()) Audio.splash();
+        else Audio.land(1);
         VEH.kick(3);
         G.air = false;
         if (MT.finish.rear) {
@@ -1517,6 +1603,7 @@ export function update(dtR) {
     if (G.state === 'title') {
       G.x = damp(G.x, MT.title.x(LV, G.dist, t), 3, dt0);
       G.steer = cos(t * 0.3) * 0.1;
+      if (LAKE()) lakeWake(dt0);
       if (G.dist > MT.title.D1) {
         G.dist = MT.title.D0;
         LV.cursor = 0;
@@ -1529,6 +1616,13 @@ export function update(dtR) {
   const bb = 0.00011;
   U.uBend.value.set(bb * sin(G.dist * 0.0037) + bb * 0.5 * sin(G.dist * 0.0081 + 1), 0.00005 * sin(G.dist * 0.0053));
   updatePalette(G.state === 'title' ? MT.title.pal : G.dist);
+  // Neblina de la bajada a Antigua
+  if (LAKE()) U.uLake.value.y = clamp((G.state === 'title' ? MT.title.pal : G.dist) / LV.length);
+  if (MT.fogAt) {
+    const f = MT.fogAt(G.state === 'title' ? MT.title.pal : G.dist);
+    U.uFogA.value = f[0];
+    U.uFogB.value = f[1];
+  }
   U.uLampP.value.set(G.x, -6);
   updatePhone(dt0);
   updateCamera(dt0);
@@ -1538,7 +1632,8 @@ export function update(dtR) {
   updateFx(dt, G.speed);
   G.sink = damp(G.sink, G.inWater && G.y <= 0.05 ? 1 : 0, 8, dt0);
   const spooked = G.spook > 0.55 ? 0.8 : 0;
-  VEH.update({x: G.x, y: max(G.y, G.state === 'falling' ? -3 : 0) - G.sink * VEH.phys.sink, speed: G.speed, steer: G.state === 'falling' ? 0.6 : G.steer, air: G.y > 0.03, crouch: G.sprint, brake: G.brake, pkg: G.pkg, time: t, dt: dt0, spin: G.spin, pitch: G.air ? clamp(G.vy * 0.018, -0.3, 0.3) : 0, vy: G.vy, rear: max(G.rear, spooked), pull: MT.pull ? -MT.pull.dir * ((G.pull || 0) + (G.pullWarn > 0 ? 0.35 : 0)) : 0, scale: VIEW.aspect < 0.9 ? VEH.phys.scaleV : VEH.phys.scale, onStep});
+  VEH.update({x: G.x, y: max(G.y, G.state === 'falling' ? -3 : 0) - G.sink * VEH.phys.sink, speed: G.speed, steer: G.state === 'falling' ? 0.6 : G.steer, air: G.y > 0.03, crouch: G.sprint, brake: G.brake, pkg: G.pkg, time: t, dt: dt0, spin: G.spin, pitch: G.air ? clamp(G.vy * 0.018, -0.3, 0.3) : 0, vy: G.vy, rear: max(G.rear, spooked), pull: MT.pull ? -MT.pull.dir * ((G.pull || 0) + (G.pullWarn > 0 ? 0.35 : 0)) : 0, scale: VIEW.aspect < 0.9 ? VEH.phys.scaleV : VEH.phys.scale, rough: G.state === 'play' ? G.rough || 0 : 0, onStep});
+  updateWake(LAKE() && G.state !== 'falling', G.x - 0.3 * G.steer, G.dist, G.speed, G.y > 0.05, dt0 * (G.ts || 1));
   if (G.state === 'play' && (G.uiT = (G.uiT || 0) - dt0) <= 0) {
     G.uiT = 0.08;
     UI.hud(G, LV);
@@ -1827,6 +1922,7 @@ export function boot() {
     buildGround();
     buildProps();
     buildFx();
+    buildWake();
     for (const k in VEHICLES) VEHICLES[k].build();
     for (const k in BOSSES) BOSSES[k].build();
     resize();
@@ -1860,7 +1956,7 @@ export function boot() {
   };
   requestAnimationFrame(loop);
   if (TEST.expose || location.hash === '#vag-debug') {
-    window.__VAG = {cam: camera, cutCam, renderer, G, IN, U, P, VIEW, BOSS, VEHICLES, UI, Audio, Voice, anime, COP, lightAhead, startCop, get LV() { return LV; }, get MT() { return MT; }, get VEH() { return VEH; }, frame, update, syncAll, renderFrame, newRun, startAt, useLevel, pickLevel, pauseGame, openRecords, REC, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop,
+    window.__VAG = {cam: camera, cutCam, renderer, scene, G, IN, U, P, VIEW, BOSS, VEHICLES, UI, Audio, Voice, anime, COP, lightAhead, startCop, get LV() { return LV; }, get MT() { return MT; }, get VEH() { return VEH; }, get BOSSK() { return BOSSK; }, frame, update, syncAll, renderFrame, newRun, startAt, useLevel, pickLevel, pauseGame, openRecords, REC, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop,
       jump(D, st) {
         G.dist = D;
         G.stage = st;
@@ -1876,4 +1972,4 @@ function updatePaletteInit() {
   updatePalette(500);
 }
 // Lo que necesitan los jefes del juego.
-const api = {G, IN, BOSS, UI, Audio, LV: null, MT: null, trackAt: (D) => trackAt(D), center: (D) => LV.center(D), shout, impact, damage, burst, fx, dropShadow, queuePhone: (f, t) => queuePhone(f, t), dust: () => col('uSandB'), onCross, onGreen, fine};
+const api = {G, IN, BOSS, UI, Audio, LV: null, MT: null, trackAt: (D) => trackAt(D), center: (D) => LV.center(D), shout, impact, damage, burst, fx, dropShadow, queuePhone: (f, t) => queuePhone(f, t), dust, onCross, onGreen, fine};

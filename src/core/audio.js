@@ -27,6 +27,22 @@ const THEMES = [
   {bpm: 98, amb: 'city', ch: [[53, 60, 64, 69], [55, 62, 65, 71], [52, 59, 64, 67], [57, 60, 64, 67]], kick: 'x.......x.......', guira: '....x.......x...', conga: '......x.....x...', bass: 'x.....x.x.......', lead: [6, 2, 4, 4, 8, 2, 2, 4], oct: 12, vel: 0.17},
   // El Rey del Camino: persecución
   {bpm: 158, stab: 'x.x...x.x.x...x.', horn: [69, 72, 74, 76, 74, 72, 69, 67, 69, 72, 76, 79], ch: [[45, 57, 60, 64], [43, 55, 59, 62], [41, 53, 57, 60], [40, 52, 56, 59]], kick: 'x...x...x.x.x...', guira: 'xxxxxxxxxxxxxxxx', conga: '....x.......x.xx', bass: 'x.xx.xx.x.xx.xx.', lead: [1, 1, 2, 1, 1, 2, 2, 4], oct: 24, vel: 0.17},
+  // Antigua, la bajada: marimba tranquila entre la neblina
+  {bpm: 94, amb: 'birds', ch: [[52, 59, 64, 67], [48, 60, 64, 67], [43, 59, 62, 67], [50, 57, 62, 66]], kick: 'x.......x.......', guira: '....x.......x...', conga: '..........x.....', bass: 'x.......x.....x.', lead: [8, 2, 2, 4, 6, 2, 8], oct: 12, vel: 0.17},
+  // Las calles empedradas: son alegre, con campanas de las iglesias
+  {bpm: 116, amb: 'bells', ch: [[43, 59, 62, 67], [48, 60, 64, 67], [50, 57, 62, 66], [43, 59, 62, 67]], kick: 'x.......x.......', guira: 'x.xxx.xxx.xxx.xx', conga: '......x....x..x.', bass: 'x.....x.x.....x.', lead: [2, 2, 1, 1, 2, 4, 2, 2, 4], oct: 24, vel: 0.19},
+  // La procesión: marcha fúnebre de banda, lenta, con bombo y tuba
+  {bpm: 64, amb: 'bells', march: true, horn: [69, 74, 72, 70, 70, 67, 70, 74, 73, 69, 76, 73, 74, 69, 65, 62], ch: [[50, 62, 65, 69], [43, 58, 62, 67], [45, 61, 64, 69], [50, 62, 65, 69]], kick: 'x.......x.......', guira: '........x.......', conga: '................', bass: 'x.......x.......', lead: [16, 16, 8, 8], oct: 12, vel: 0.1},
+  // Doña Choco: persecución con trompeta y marimba
+  {bpm: 152, stab: 'x.x...x.x.x...x.', horn: [74, 76, 79, 76, 74, 71, 74, 79, 81, 79, 76, 74], ch: [[43, 59, 62, 67], [48, 60, 64, 67], [50, 57, 62, 66], [43, 59, 62, 67]], kick: 'x...x...x...x...', guira: 'xxx.xxx.xxx.xxx.', conga: '..x...x...x..xx.', bass: 'x.xx.xx.x.xx.xx.', lead: [1, 1, 2, 1, 1, 2, 2, 4], oct: 24, vel: 0.17},
+  // Atitlán, saliendo de Panajachel: son en seis por ocho, despacito, con el agua de fondo
+  {bpm: 86, div: 3, bar: 24, amb: 'lake', ch: [[50, 62, 66, 69], [47, 59, 62, 66], [43, 59, 62, 67], [45, 57, 61, 64]], kick: 'x.....x.....', guira: '...x.....x..', conga: '.....x.....x', bass: 'x.....x..x..', lead: [6, 3, 3, 6, 6, 12], oct: 12, vel: 0.17},
+  // Los pueblos del lago: son alegre
+  {bpm: 112, amb: 'lake', ch: [[55, 62, 67, 71], [52, 59, 64, 67], [48, 60, 64, 67], [50, 57, 62, 66]], kick: 'x.......x.......', guira: 'x.xxx.xxx.xxx.xx', conga: '......x....x..x.', bass: 'x.....x.x.....x.', lead: [2, 2, 1, 1, 2, 4, 2, 2, 4], oct: 24, vel: 0.18},
+  // El Xocomil: en menor, apurado, con ráfagas
+  {bpm: 134, amb: 'wind', ch: [[45, 57, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62], [40, 52, 55, 59]], kick: 'x...x...x...x...', guira: 'x.x.xxx.x.x.xxx.', conga: '..x...x...x..xx.', bass: 'x.xx.x.xx.xx.x.x', lead: [2, 1, 1, 2, 2, 4, 2, 2], oct: 24, vel: 0.18},
+  // El Xocomil en persona: tormenta con trompeta
+  {bpm: 156, amb: 'wind', stab: 'x.x...x.x.x...x.', horn: [69, 72, 76, 74, 72, 69, 67, 69, 72, 76, 79, 76], ch: [[45, 57, 60, 64], [41, 53, 57, 60], [43, 55, 59, 62], [40, 52, 56, 59]], kick: 'x...x...x.x.x...', guira: 'xxxxxxxxxxxxxxxx', conga: '....x.......x.xx', bass: 'x.xx.xx.x.xx.xx.', lead: [1, 1, 2, 1, 1, 2, 2, 4], oct: 24, vel: 0.17},
 ];
 function ir(sec, decay) {
   const n = floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, n, ctx.sampleRate);
@@ -250,6 +266,22 @@ function horn(f, t, dur, v) {
   })());
   return vib;
 }
+// Campana: parciales inarmónicos con caída larga, a la reverb.
+function bell(f, t, v) {
+  const out = ctx.createGain();
+  out.gain.value = 1;
+  out.connect(sfx);
+  const r = ctx.createGain();
+  r.gain.value = 0.6;
+  out.connect(r);
+  r.connect(verbSend);
+  [[1, 1, 2.6], [2.0, 0.5, 1.8], [2.4, 0.4, 1.5], [3.0, 0.3, 1.1], [4.2, 0.22, 0.8], [0.5, 0.3, 3.2]].forEach(([m, a, d]) => {
+    const g = ctx.createGain();
+    env(g, t, v * a, 0.004, d);
+    g.connect(out);
+    osc(f * m, t, d, g);
+  });
+}
 function playStep(s, t) {
   const A = THEMES[level], sb = s % A.kick.length, ci = floor(s / (A.bar || 32)) % 4, ch = A.ch[ci], spb = 60 / (A.bpm * slow);
   if (A.kick[sb] === 'x') kick(t);
@@ -259,8 +291,11 @@ function playStep(s, t) {
   if (A.stab && A.stab[sb] === 'x') stab(ch, t, spb * 0.28, 0.1);
   if (A.horn && s % 8 === 0) {
     const n = A.horn[floor(s / 8) % A.horn.length];
-    horn(mtof(n), t, spb * 1.55, 0.13);
+    horn(mtof(n), t, spb * (A.march ? 1.9 : 1.55), A.march ? 0.15 : 0.13);
+    // En la marcha, una segunda voz una tercera abajo
+    if (A.march) horn(mtof(n - (sb % 16 < 8 ? 3 : 4)), t + 0.01, spb * 1.9, 0.09);
   }
+  if (A.march && sb === 12) for (let k = 0; k < 4; k++) guira(t + k * spb * 0.125, 0.03 + k * 0.012);
   // Melodía: frase que camina por las notas del acorde, con trémolo en las notas largas.
   if (s >= leadNext) {
     const d = A.lead[leadI % A.lead.length];
@@ -303,6 +338,47 @@ function tick() {
       const o = osc(f0, t0, 0.1, g);
       o.frequency.exponentialRampToValueAtTime(f0 * rnd(1.15, 1.4), t0 + 0.08);
     }
+  }
+  // Antigua: campanas de iglesia a lo lejos
+  if (THEMES[level].amb === 'bells' && now > crickT) {
+    crickT = now + rnd(4.5, 9);
+    const f0 = [330, 392, 294][floor(rnd(3))], n = floor(rnd(1, 4));
+    for (let i = 0; i < n; i++) bell(f0, now + i * 0.9, 0.05);
+  }
+  // Lago: el agua que pega en la lancha, y un zanate de vez en cuando
+  if (THEMES[level].amb === 'lake' && now > crickT) {
+    crickT = now + rnd(0.9, 2.2);
+    const g = ctx.createGain(), f = ctx.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.2;
+    f.frequency.value = rnd(500, 900);
+    env(g, now, 0.05, 0.01, 0.18);
+    f.connect(g);
+    g.connect(sfx);
+    noise(now, 0.2, f);
+    if (Math.random() < 0.3) {
+      const z = ctx.createGain(), t0 = now + 0.3;
+      env(z, t0, 0.02, 0.01, 0.32);
+      z.connect(sfx);
+      const o = osc(rnd(1300, 1700), t0, 0.32, z);
+      o.frequency.exponentialRampToValueAtTime(rnd(3200, 4200), t0 + 0.28);
+    }
+  }
+  // El Xocomil: ráfagas que van y vienen
+  if (THEMES[level].amb === 'wind' && now > crickT) {
+    crickT = now + rnd(2.2, 4.5);
+    const g = ctx.createGain(), f = ctx.createBiquadFilter(), d = rnd(1.4, 2.4);
+    f.type = 'bandpass';
+    f.Q.value = 0.7;
+    f.frequency.setValueAtTime(rnd(300, 450), now);
+    f.frequency.exponentialRampToValueAtTime(rnd(900, 1400), now + d * 0.45);
+    f.frequency.exponentialRampToValueAtTime(rnd(350, 500), now + d);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.09, now + d * 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    f.connect(g);
+    g.connect(sfx);
+    noise(now, d + 0.05, f);
   }
   // Ciudad: bocinas lejanas de vez en cuando
   if (THEMES[level].amb === 'city' && now > crickT) {
@@ -708,6 +784,75 @@ export const Audio = {
     }
   },
   _siren: null,
+  // Pito del tuc-tuc: agudo y chillón
+  meep() {
+    if (!init()) return;
+    const t = ctx.currentTime;
+    [0, 0.17].forEach((d) => {
+      const g = ctx.createGain(), f = ctx.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 2400;
+      env(g, t + d, 0.12, 0.01, 0.13);
+      f.connect(g);
+      g.connect(sfx);
+      osc(620, t + d, 0.13, f, 'square');
+      osc(780, t + d, 0.13, f, 'square');
+    });
+  },
+  // La campanita del carretón de chocobananos
+  // Bocina de lancha: dos notas graves, un poco desafinadas
+  bocina() {
+    if (!ctx) return;
+    const t = ctx.currentTime, g = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 950;
+    lp.Q.value = 2;
+    env(g, t, 0.17, 0.03, 0.62);
+    lp.connect(g);
+    g.connect(sfx);
+    const r = ctx.createGain();
+    r.gain.value = 0.3;
+    g.connect(r);
+    r.connect(verbSend);
+    [[155, 'sawtooth'], [196, 'square']].forEach(([f, ty]) => {
+      const o = osc(f, t, 0.62, lp, ty);
+      o.frequency.setValueAtTime(f, t + 0.4);
+      o.frequency.linearRampToValueAtTime(f * 0.96, t + 0.62);
+    });
+  },
+  // Remolino: agua que da vueltas
+  remolino() {
+    if (!ctx) return;
+    const t = ctx.currentTime, d = 1.1, g = ctx.createGain(), f = ctx.createBiquadFilter(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+    f.type = 'bandpass';
+    f.Q.value = 1.6;
+    f.frequency.value = 650;
+    lfo.frequency.setValueAtTime(6, t);
+    lfo.frequency.linearRampToValueAtTime(13, t + d);
+    lg.gain.value = 320;
+    lfo.connect(lg);
+    lg.connect(f.frequency);
+    lfo.start(t);
+    lfo.stop(t + d + 0.05);
+    env(g, t, 0.95, 0.06, d);
+    f.connect(g);
+    g.connect(sfx);
+    noise(t, d + 0.05, f);
+  },
+  campanita() {
+    if (!init()) return;
+    const t = ctx.currentTime;
+    for (let i = 0; i < 6; i++) {
+      const g = ctx.createGain(), tt = t + i * 0.11;
+      env(g, tt, 0.17, 0.002, 0.35);
+      g.connect(sfx);
+      osc(i % 2 ? 2350 : 2620, tt, 0.35, g);
+      const g2 = ctx.createGain();
+      env(g2, tt, 0.06, 0.002, 0.15);
+      g2.connect(sfx);
+      osc((i % 2 ? 2350 : 2620) * 2.7, tt, 0.15, g2);
+    }
+  },
   // Ráfaga del mar
   gust() {
     if (!init()) return;

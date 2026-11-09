@@ -11,7 +11,7 @@ Un repartidor cruza Guatemala con un paquete urgente. Don Beto llama cada cinco 
 
 ![Partida de Vuelta a Guatemala](docs/img/juego.gif)
 
-Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, caballo, camioneta, ganado, ferias, edificios y semáforos) se construye con código, y la música de marimba se genera en el navegador. Los personajes también tienen voz: cuando Don Beto, Mamá o Don Chus llaman, balbucean por teléfono con su propio tono, siguiendo las sílabas de lo que dicen, como en los juegos de antes. Los modelos, la música y las voces no vienen de archivos 3D ni de audio pregrabado. Las voces se pueden apagar con el botón **Voces**.
+Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, caballo, camioneta, tuc-tuc, lancha, ganado, ferias, edificios, procesiones y volcanes) se construye con código, y la música de marimba se genera en el navegador. Los personajes también tienen voz: cuando Don Beto, Mamá, Don Lalo o Don Chema llaman, balbucean por teléfono con su propio tono, siguiendo las sílabas de lo que dicen, como en los juegos de antes. Los modelos, la música y las voces no vienen de archivos 3D ni de audio pregrabado. Las voces se pueden apagar con el botón **Voces**.
 
 ## Monterrico, la primera parada
 
@@ -75,6 +75,34 @@ Don Chus, el chofer, se baja a comprar un shuco y te deja el timón de La Chusit
 
 ![Don Chus espera con su shuco frente al Palacio](docs/img/capital-final.jpg)
 
+## Antigua Guatemala, la cuarta parada
+
+Don Lalo te presta La Bendecida, su tuc-tuc rojo, para bajar de la capital a Antigua. Primero vienen las curvas entre pinos con neblina, camiones y derrumbes. Después, las calles empedradas: por las lajas lisas del centro se corre más, el empedrado sacude, y hay turistas tomando fotos en media calle, carretones, otros tuc-tucs y túmulos. Al final pasa la procesión, con cucuruchos, el anda, la banda e incienso, y alfombras de aserrín que no hay que pisar. En el camino hay chocobananos que dan cinco segundos más.
+
+La jefa es Doña Choco, la de los chocobananos, que te los tira desde su carretón. Las marcas en el suelo avisan dónde van a caer. El final es en el Parque Central, donde Don Lalo te espera con un chocobanano.
+
+| La bajada con neblina | Las calles empedradas |
+|---|---|
+| ![Tuc-tuc bajando entre pinos con neblina](docs/img/antigua-bajada.jpg) | ![Tuc-tuc por una calle empedrada con casas de colores](docs/img/antigua-calles.jpg) |
+
+| Las alfombras de aserrín | El Parque Central |
+|---|---|
+| ![Alfombra de aserrín en la calle de la procesión](docs/img/antigua-alfombra.jpg) | ![El tuc-tuc salta frente a la catedral y el palacio](docs/img/antigua-final.jpg) |
+
+## Lago de Atitlán, la quinta parada
+
+Don Chema te presta La Sirena, su lancha, en el muelle de Panajachel, y se va en la pública a esperarte a San Pedro La Laguna. En la mañana el lago está como espejo, con neblina y los volcanes reflejados en el agua; hay lanchas, cayucos de pescadores, kayaks y troncos. Después vienen los pueblos de la orilla norte: redes de pescador que se brincan o se rodean, la lancha pública que se cruza de muelle en muelle y gente en flotador cerca de la plataforma del cerro Tzankujil. A mediodía se levanta el Xocomil: las olas se brincan de frente, el agua picada frena y por la franja de agua mansa se corre más. En el camino hay cafecitos de San Pedro que dan cinco segundos más.
+
+El jefe es el Xocomil en persona, una nube cachetona que sopla una ola, después remolinos y al final las dos cosas. El final es en el muelle de San Pedro, donde Don Chema te espera.
+
+| Saliendo de Panajachel | Las redes de los pescadores |
+|---|---|
+| ![Lancha en el lago con los volcanes al fondo](docs/img/atitlan-lago.jpg) | ![Red de pescador con corchos y banderitas frente a un pueblo](docs/img/atitlan-red.jpg) |
+
+| El Xocomil, el jefe | El muelle de San Pedro |
+|---|---|
+| ![Nube brava con cachetes sobre el lago](docs/img/atitlan-xocomil.jpg) | ![La lancha llega al muelle de San Pedro al atardecer](docs/img/atitlan-final.jpg) |
+
 ## Estado
 
 | Parada | Vehículo | Estado |
@@ -82,13 +110,13 @@ Don Chus, el chofer, se baja a comprar un shuco y te deja el timón de La Chusit
 | Monterrico | Bicicleta | Se puede jugar |
 | Taxisco y Guazacapán | Caballo | Se puede jugar |
 | Ciudad de Guatemala | Camioneta | Se puede jugar |
-| Antigua | Tuc-tuc | Pendiente |
-| Atitlán | Lancha | Pendiente |
+| Antigua | Tuc-tuc | Se puede jugar |
+| Atitlán | Lancha | Se puede jugar |
 | Xela | Moto | Pendiente |
 
-Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT.
+Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT. En Antigua es Doña Choco: después de tres tandas de chocobananos esquivadas, se le acaban. En Atitlán es el Xocomil: a la tercera que lo esquivás, se calma.
 
-En Monterrico y en la capital también hay jalones: el viento del mar y la camioneta desalineada. Si los corregís sin chocar ni salirte del camino, te ganás una propina. Turbo, en cambio, va siempre para donde lo guiás.
+En Monterrico y en la capital también hay jalones: el viento del mar y la camioneta desalineada. Si los corregís sin chocar ni salirte del camino, te ganás una propina. Turbo, en cambio, va siempre para donde lo guiás, y en el lago el viento se nota en las olas, no en el timón.
 
 Turbo no se maneja como la bicicleta: pesa más, se cansa cuando lo apurás y brinca más alto. Va más rápido por la tierra que por el pasto, se atasca en el lodo y se asusta con los cohetillos.
 
@@ -102,7 +130,7 @@ Los récords se guardan en [Supabase](https://supabase.com). La tabla solo deja 
 create table public.records (
   id bigint generated always as identity primary key,
   creado timestamptz not null default now(),
-  nivel text not null check (nivel in ('monterrico', 'taxisco', 'capital')),
+  nivel text not null check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan')),
   nombre text not null check (char_length(nombre) between 3 and 12),
   estrellas smallint not null check (estrellas between 0 and 5),
   tiempo real not null check (tiempo between 0 and 200),
@@ -114,6 +142,13 @@ alter table public.records enable row level security;
 create policy "Todos pueden ver los records" on public.records for select to anon using (true);
 create policy "Todos pueden guardar un record" on public.records for insert to anon with check (true);
 grant select, insert on public.records to anon;
+```
+
+Si ya tenías la tabla de antes, con solo tres paradas, este cambio deja guardar récords de Antigua y Atitlán:
+
+```sql
+alter table public.records drop constraint records_nivel_check;
+alter table public.records add constraint records_nivel_check check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan'));
 ```
 
 ## Controles
