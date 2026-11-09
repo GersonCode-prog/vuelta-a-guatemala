@@ -8,3 +8,5 @@ import './styles.css';
 import {boot} from './game.js';
 
 boot();
+// Instalable como app (y base para el APK): solo en la página publicada.
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(() => {});
