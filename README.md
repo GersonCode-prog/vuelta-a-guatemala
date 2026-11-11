@@ -11,7 +11,7 @@ Un repartidor cruza Guatemala con un paquete urgente. Don Beto llama cada cinco 
 
 ![Partida de Vuelta a Guatemala](docs/img/juego.gif)
 
-Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, caballo, camioneta, tuc-tuc, lancha, ganado, ferias, edificios, procesiones y volcanes) se construye con código, y la música de marimba se genera en el navegador. Los personajes también tienen voz: cuando Don Beto, Mamá, Don Lalo o Don Chema llaman, balbucean por teléfono con su propio tono, siguiendo las sílabas de lo que dicen, como en los juegos de antes. Los modelos, la música y las voces no vienen de archivos 3D ni de audio pregrabado. Las voces se pueden apagar con el botón **Voces**.
+Juego 3D de estilo anime hecho con JavaScript. Todo lo que se ve (ciclista, caballo, camioneta, tuc-tuc, lancha, moto, ganado, ferias, edificios, procesiones y volcanes) se construye con código, y la música de marimba se genera en el navegador. Los personajes también tienen voz: cuando Don Beto, Mamá, Don Lalo, Don Chema o el Brayan llaman, balbucean por teléfono con su propio tono, siguiendo las sílabas de lo que dicen, como en los juegos de antes. Los modelos, la música y las voces no vienen de archivos 3D ni de audio pregrabado. Las voces se pueden apagar con el botón **Voces**.
 
 ## Monterrico, la primera parada
 
@@ -103,6 +103,20 @@ El jefe es el Xocomil en persona, una nube cachetona que sopla una ola, después
 |---|---|
 | ![Nube brava con cachetes sobre el lago](docs/img/atitlan-xocomil.jpg) | ![La lancha llega al muelle de San Pedro al atardecer](docs/img/atitlan-final.jpg) |
 
+## Xela, la sexta parada
+
+Don Chema te presta La Chilera, la moto roja de su sobrino el Brayan, para subir de San Pedro a Xela con el paquete amarrado con pulpo. Primero viene la Cumbre de Alaska, a más de 3,000 metros: neblina, helada, camiones, derrumbes y ovejas que cruzan con su pastora. La escarcha del asfalto no frena, pero la moto se resbala y tarda en hacerte caso. Después, Cuatro Caminos al atardecer: puestos que se comen el carril, venteras que cruzan y camionetas paradas en la orilla que se te meten cuando el ayudante grita "¡Xela, Xela, Xela!". Al final, Xela de noche con lluvia, entre edificios de piedra gris, faroles y el Teatro Municipal: si pasás encima de un charco, mojás a los que esperan bus. En el camino hay shecas que dan cinco segundos más.
+
+El jefe es El Cadejo, el chucho negro de ojos de brasa que sale de noche a los que andan tarde. Cuando te clava los ojos, la franja roja marca el carril por donde se te va a tirar encima: quitate de ahí. Si cruza la calle, deja la cadena tendida: brincala. A la tercera llega el Cadejo blanco y el negro se va. El final es en el Parque Centroamérica, donde La Licenciada por fin recibe su paquete.
+
+| La Cumbre de Alaska | Cuatro Caminos |
+|---|---|
+| ![Moto en la carretera de la cumbre con escarcha y neblina](docs/img/xela-cumbre.jpg) | ![Camioneta que sale de la orilla en Cuatro Caminos al atardecer](docs/img/xela-cuatro.jpg) |
+
+| Xela de noche | El Cadejo, el jefe |
+|---|---|
+| ![Calle de Xela de noche con lluvia y faroles](docs/img/xela-noche.jpg) | ![La franja roja marca el carril del Cadejo](docs/img/xela-cadejo.jpg) |
+
 ## Estado
 
 | Parada | Vehículo | Estado |
@@ -112,9 +126,9 @@ El jefe es el Xocomil en persona, una nube cachetona que sopla una ola, después
 | Ciudad de Guatemala | Camioneta | Se puede jugar |
 | Antigua | Tuc-tuc | Se puede jugar |
 | Atitlán | Lancha | Se puede jugar |
-| Xela | Moto | Pendiente |
+| Xela | Moto | Se puede jugar |
 
-Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT. En Antigua es Doña Choco: después de tres tandas de chocobananos esquivadas, se le acaban. En Atitlán es el Xocomil: a la tercera que lo esquivás, se calma.
+Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT. En Antigua es Doña Choco: después de tres tandas de chocobananos esquivadas, se le acaban. En Atitlán es el Xocomil: a la tercera que lo esquivás, se calma. En Xela es El Cadejo: a la tercera, lo espanta el Cadejo blanco.
 
 En Monterrico y en la capital también hay jalones: el viento del mar y la camioneta desalineada. Si los corregís sin chocar ni salirte del camino, te ganás una propina. Turbo, en cambio, va siempre para donde lo guiás, y en el lago el viento se nota en las olas, no en el timón.
 
@@ -130,7 +144,7 @@ Los récords se guardan en [Supabase](https://supabase.com). La tabla solo deja 
 create table public.records (
   id bigint generated always as identity primary key,
   creado timestamptz not null default now(),
-  nivel text not null check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan')),
+  nivel text not null check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan', 'xela')),
   nombre text not null check (char_length(nombre) between 3 and 12),
   estrellas smallint not null check (estrellas between 0 and 5),
   tiempo real not null check (tiempo between 0 and 200),
@@ -144,11 +158,11 @@ create policy "Todos pueden guardar un record" on public.records for insert to a
 grant select, insert on public.records to anon;
 ```
 
-Si ya tenías la tabla de antes, con solo tres paradas, este cambio deja guardar récords de Antigua y Atitlán:
+Si ya tenías la tabla de antes, este cambio deja guardar récords de todas las paradas, Xela incluida:
 
 ```sql
 alter table public.records drop constraint records_nivel_check;
-alter table public.records add constraint records_nivel_check check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan'));
+alter table public.records add constraint records_nivel_check check (nivel in ('monterrico', 'taxisco', 'capital', 'antigua', 'atitlan', 'xela'));
 ```
 
 ## Controles
@@ -160,7 +174,7 @@ alter table public.records add constraint records_nivel_check check (nivel in ('
 | Pirueta | Saltar otra vez en el aire | Saltar otra vez en el aire |
 | Ir más rápido | ↑ o W | Botón Dale |
 | Frenar (la camioneta para del todo) | ↓, S o clic derecho | Botón Freno |
-| Timbre, relincho o pito | B | |
+| Timbre, relincho, pito o bocina | B | |
 | Pausa | P o Esc | Botón de pausa |
 | Silencio | M | |
 
@@ -193,8 +207,8 @@ El proyecto ya trae el flujo en `.github/workflows/deploy.yml`:
 src/
   core/      utilidades, sombreadores, render, audio, voces, interfaz y récords
   world/     suelo, objetos del mundo, efectos, semáforos y la PMT
-  vehicles/  repartidor, bicicleta, caballo y camioneta
-  bosses/    los jefes: Terremoto, Cariñoso y El Rey del Camino
+  vehicles/  repartidor, bicicleta, caballo, camioneta, tuc-tuc, lancha y moto
+  bosses/    los jefes: Terremoto, Cariñoso, El Rey del Camino, Doña Choco, el Xocomil y El Cadejo
   levels/    cada parada: pista, obstáculos, llamadas y paleta
   game.js    estados, física, choques y controles
   main.js    punto de entrada

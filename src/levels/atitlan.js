@@ -13,7 +13,7 @@ const townK = (D) => TOWNS.reduce((k, [c, h]) => max(k, 1 - sstep(h * 0.6, h, ab
 
 export const META = {
   id: 'atitlan', name: 'Lago de Atitlán', short: 'Atitlán', vehicle: 'lancha', vehicleName: 'Lancha', ground: 'city', look: 'lake', stop: 5,
-  next: 'Xela', nextId: null, music: [16, 17, 18, 19], forceLabel: 'Motor', sprintWord: 'acelerar', callWord: 'bocina', callChip: 'Bocina',
+  next: 'Xela', nextId: 'xela', music: [16, 17, 18, 19], forceLabel: 'Motor', sprintWord: 'acelerar', callWord: 'bocina', callChip: 'Bocina',
   stages: [
     {name: 'Saliendo de Panajachel', fact: 'El lago de Atitlán llena la caldera de un volcán antiguo y llega a 340 metros de hondo.', speed: 25, clock: 90},
     {name: 'Los pueblos del lago', fact: 'En el cerro Tzankujil, en San Marcos La Laguna, hay una plataforma para tirarse al lago.', speed: 23, clock: 96},
@@ -28,7 +28,7 @@ export const META = {
     {id: 'carton', name: 'Bolsa impermeable', desc: 'El paquete recibe 30% menos daño.', price: 70},
   ]},
   share: 'Crucé el lago de Atitlán en lancha',
-  note: 'Don Chema amarró La Sirena y te prestó la moto de su sobrino. El paquete sigue para <b class="text-oro">Xela</b>, en moto, pronto.',
+  note: 'Don Chema amarró La Sirena y te prestó la moto de su sobrino. El paquete sigue para <b class="text-oro">Xela</b>, en moto.',
   title: {D0: 240, D1: 820, pal: 900, speed: 14, x: (LV, D, t) => LV.center(D) + 1.3 * sin(t * 0.3)},
   palGain: [1.02, 1, 7000], leftHills: 0, burn: null, fenceOff: 0, agua: null, sunAz: 0.5,
   ambient: () => 0.3, fallText: '¡Al agua!',

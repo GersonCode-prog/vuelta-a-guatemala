@@ -31,6 +31,8 @@ const PEOPLE = {
   'Don Lalo': {f0: 116, fs: 0.96, rate: 13.5, swing: 0.24, bright: 2900, rasp: 0.1, gain: 1},
   'Doña Choco': {f0: 228, fs: 1.16, rate: 15, swing: 0.24, bright: 3500, rasp: 0.08, vib: 0.015, gain: 0.95},
   'Don Chema': {f0: 98, fs: 0.93, rate: 11.5, swing: 0.22, bright: 2400, rasp: 0.24, gain: 1},
+  Brayan: {f0: 136, fs: 1.0, rate: 16, swing: 0.25, bright: 3200, rasp: 0.07, gain: 1},
+  Ayudante: {f0: 150, fs: 1.0, rate: 17, swing: 0.32, bright: 3500, rasp: 0.22, gain: 1.15},
 };
 const hash = (s) => {
   let h = 2166136261;

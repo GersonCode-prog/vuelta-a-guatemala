@@ -1,7 +1,7 @@
 // Música generada en el navegador: marimba con trémolo sobre ritmo de cumbia, más efectos.
 import {store, clamp, lerp, rnd, min, max, pow, floor} from './util.js';
 
-let ctx = null, master, comp, music, musicLP, duck, sfx, dlySend, dly, dlyFb, dlyLP, verb, verbSend, noiseBuf, amb, ambLP, ambG, wind, windG;
+let ctx = null, master, comp, music, musicLP, duck, sfx, dlySend, dly, dlyFb, dlyLP, verb, verbSend, noiseBuf, amb, ambLP, ambG, wind, windG, rainG, eng = null;
 let playing = false, muted = store.get('muted', false), vol = store.get('vol', 0.8);
 let level = 0, step = 0, nextT = 0, leadNext = 0, leadI = 0, slow = 1, crickT = 0;
 const mtof = (m) => 440 * pow(2, (m - 69) / 12);
@@ -43,6 +43,14 @@ const THEMES = [
   {bpm: 134, amb: 'wind', ch: [[45, 57, 60, 64], [41, 57, 60, 65], [43, 55, 59, 62], [40, 52, 55, 59]], kick: 'x...x...x...x...', guira: 'x.x.xxx.x.x.xxx.', conga: '..x...x...x..xx.', bass: 'x.xx.x.xx.xx.x.x', lead: [2, 1, 1, 2, 2, 4, 2, 2], oct: 24, vel: 0.18},
   // El Xocomil en persona: tormenta con trompeta
   {bpm: 156, amb: 'wind', stab: 'x.x...x.x.x...x.', horn: [69, 72, 76, 74, 72, 69, 67, 69, 72, 76, 79, 76], ch: [[45, 57, 60, 64], [41, 53, 57, 60], [43, 55, 59, 62], [40, 52, 56, 59]], kick: 'x...x...x.x.x...', guira: 'xxxxxxxxxxxxxxxx', conga: '....x.......x.xx', bass: 'x.xx.xx.x.xx.xx.', lead: [1, 1, 2, 1, 1, 2, 2, 4], oct: 24, vel: 0.17},
+  // La Cumbre de Alaska: son en seis por ocho, en menor, con el viento frío de fondo
+  {bpm: 88, div: 3, bar: 24, amb: 'cold', ch: [[45, 57, 60, 64], [50, 57, 62, 65], [43, 55, 59, 62], [45, 57, 60, 64]], kick: 'x.....x.....', guira: '...x.....x..', conga: '.....x.....x', bass: 'x.....x..x..', lead: [6, 3, 3, 6, 6, 12], oct: 12, vel: 0.17},
+  // Cuatro Caminos: cumbia de camioneta, con trompeta y bocinas
+  {bpm: 128, amb: 'city', stab: 'x..x..x.x..x..x.', horn: [72, 74, 76, 79, 76, 74, 72, 69], ch: [[48, 60, 64, 67], [53, 60, 65, 69], [55, 62, 67, 71], [48, 60, 64, 67]], kick: 'x...x...x...x...', guira: 'x.xxx.xxx.xxx.xx', conga: '..x...x...x..xx.', bass: 'x..x..x.x..x..x.', lead: [2, 2, 1, 1, 2, 4, 2, 2, 4], oct: 24, vel: 0.18},
+  // Xela de noche: son lento en menor, con la lluvia
+  {bpm: 92, amb: 'rain', ch: [[50, 57, 62, 65], [46, 58, 62, 65], [43, 55, 58, 62], [45, 57, 61, 64]], kick: 'x.......x.......', guira: '....x.......x...', conga: '......x.....x...', bass: 'x.....x.x.......', lead: [6, 2, 4, 4, 8, 2, 2, 4], oct: 12, vel: 0.16},
+  // El Cadejo: persecución de miedo, con trompeta
+  {bpm: 150, stab: 'x.x...x.x.x...x.', horn: [69, 72, 75, 74, 72, 69, 68, 69, 72, 75, 78, 75], ch: [[45, 57, 60, 64], [44, 56, 59, 63], [41, 53, 57, 60], [40, 52, 56, 59]], kick: 'x...x...x.x.x...', guira: 'xxxxxxxxxxxxxxxx', conga: '....x.......x.xx', bass: 'x.xx.xx.x.xx.xx.', lead: [1, 1, 2, 1, 1, 2, 2, 4], oct: 24, vel: 0.17},
 ];
 function ir(sec, decay) {
   const n = floor(ctx.sampleRate * sec), b = ctx.createBuffer(2, n, ctx.sampleRate);
@@ -133,6 +141,21 @@ function init() {
   wf.connect(windG);
   windG.connect(comp);
   wind.start();
+  // Lluvia: ruido brillante, siempre corriendo; sube cuando el tema lo pide.
+  const rn = ctx.createBufferSource(), rhp = ctx.createBiquadFilter(), rlp = ctx.createBiquadFilter();
+  rn.buffer = noiseBuf;
+  rn.loop = true;
+  rhp.type = 'highpass';
+  rhp.frequency.value = 1500;
+  rlp.type = 'lowpass';
+  rlp.frequency.value = 7000;
+  rainG = ctx.createGain();
+  rainG.gain.value = 0;
+  rn.connect(rhp);
+  rhp.connect(rlp);
+  rlp.connect(rainG);
+  rainG.connect(comp);
+  rn.start();
   return true;
 }
 const env = (g, t, peak, atk, end) => {
@@ -375,6 +398,23 @@ function tick() {
     f.frequency.exponentialRampToValueAtTime(rnd(350, 500), now + d);
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(0.09, now + d * 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+    f.connect(g);
+    g.connect(sfx);
+    noise(now, d + 0.05, f);
+  }
+  // Lluvia en Xela; en la cumbre, el viento frío que silba.
+  rainG.gain.setTargetAtTime(THEMES[level].amb === 'rain' ? 0.05 : 0, now, 0.6);
+  if (THEMES[level].amb === 'cold' && now > crickT) {
+    crickT = now + rnd(2.6, 5);
+    const g = ctx.createGain(), f = ctx.createBiquadFilter(), d = rnd(1.8, 3);
+    f.type = 'bandpass';
+    f.Q.value = 6;
+    f.frequency.setValueAtTime(rnd(700, 900), now);
+    f.frequency.exponentialRampToValueAtTime(rnd(1300, 1700), now + d * 0.5);
+    f.frequency.exponentialRampToValueAtTime(rnd(800, 1000), now + d);
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(0.05, now + d * 0.45);
     g.gain.exponentialRampToValueAtTime(0.0001, now + d);
     f.connect(g);
     g.connect(sfx);
@@ -915,6 +955,123 @@ export const Audio = {
     f.connect(g);
     g.connect(sfx);
     noise(t, 0.52, f);
+  },
+  // Pito de la moto: dos piquitos agudos
+  claxon() {
+    if (!init()) return;
+    const t = ctx.currentTime;
+    [0, 0.14].forEach((d) => {
+      const g = ctx.createGain(), f = ctx.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = 1500;
+      f.Q.value = 1.2;
+      env(g, t + d, 0.16, 0.006, 0.11);
+      f.connect(g);
+      g.connect(sfx);
+      osc(880, t + d, 0.11, f, 'square');
+      osc(1108, t + d, 0.11, f, 'square');
+    });
+  },
+  // Motor de la moto: sube de tono con la velocidad y ruge al acelerar.
+  engine(on, sp, gas) {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    if (!eng) {
+      if (!on) return;
+      const o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain(), am = ctx.createOscillator(), amG = ctx.createGain(), trem = ctx.createGain();
+      o1.type = 'sawtooth';
+      o2.type = 'square';
+      lp.type = 'lowpass';
+      lp.frequency.value = 700;
+      lp.Q.value = 3;
+      g.gain.value = 0;
+      // El "ring-ding" del motor: el volumen tiembla a la mitad del tono.
+      trem.gain.value = 0.72;
+      am.frequency.value = 22;
+      amG.gain.value = 0.28;
+      am.connect(amG);
+      amG.connect(trem.gain);
+      o1.connect(lp);
+      o2.connect(lp);
+      lp.connect(trem);
+      trem.connect(g);
+      g.connect(sfx);
+      o1.start();
+      o2.start();
+      am.start();
+      eng = {o1, o2, lp, g, am};
+    }
+    const f = 48 + sp * 2.6 + (gas ? 16 : 0);
+    eng.o1.frequency.setTargetAtTime(f, t, 0.12);
+    eng.o2.frequency.setTargetAtTime(f * 0.501, t, 0.12);
+    eng.am.frequency.setTargetAtTime(f * 0.5, t, 0.12);
+    eng.lp.frequency.setTargetAtTime(gas ? 1100 : 700, t, 0.2);
+    eng.g.gain.setTargetAtTime(on ? (gas ? 0.085 : 0.055) : 0, t, on ? 0.15 : 0.06);
+  },
+  // Aullido del Cadejo: sube, se sostiene temblando y se apaga.
+  aullido() {
+    if (!init()) return;
+    const t = ctx.currentTime, d = 1.9, g = ctx.createGain(), f = ctx.createBiquadFilter(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+    f.type = 'bandpass';
+    f.frequency.value = 900;
+    f.Q.value = 1.4;
+    env(g, t, 0.3, 0.25, d);
+    f.connect(g);
+    g.connect(sfx);
+    const r = ctx.createGain();
+    r.gain.value = 0.5;
+    g.connect(r);
+    r.connect(verbSend);
+    lfo.frequency.value = 6;
+    lg.gain.value = 9;
+    lfo.connect(lg);
+    lfo.start(t);
+    lfo.stop(t + d + 0.1);
+    [[1, 'sawtooth'], [2, 'sine']].forEach(([m, ty]) => {
+      const o = osc(300 * m, t, d, f, ty);
+      lg.connect(o.frequency);
+      o.frequency.setValueAtTime(300 * m, t);
+      o.frequency.exponentialRampToValueAtTime(540 * m, t + 0.5);
+      o.frequency.setValueAtTime(540 * m, t + 1.2);
+      o.frequency.exponentialRampToValueAtTime(380 * m, t + d);
+    });
+  },
+  // Gruñido grave antes de tirarse
+  grr(v = 0.7) {
+    if (!ctx) return;
+    const t = ctx.currentTime, d = 0.55, g = ctx.createGain(), f = ctx.createBiquadFilter(), am = ctx.createOscillator(), amG = ctx.createGain();
+    f.type = 'lowpass';
+    f.frequency.value = 520;
+    env(g, t, 0.35 * v, 0.04, d);
+    am.frequency.value = 27;
+    amG.gain.value = 0.15 * v;
+    am.connect(amG);
+    amG.connect(g.gain);
+    am.start(t);
+    am.stop(t + d + 0.05);
+    f.connect(g);
+    g.connect(sfx);
+    const o = osc(78, t, d, f, 'sawtooth');
+    o.frequency.linearRampToValueAtTime(64, t + d);
+    noise(t, d, f);
+  },
+  // Cadena que se arrastra: eslabones que suenan
+  cadena(v = 1) {
+    if (!init()) return;
+    const t = ctx.currentTime;
+    for (let i = 0; i < 7; i++) {
+      const tt = t + i * 0.07 + rnd(0, 0.03), g = ctx.createGain(), f = ctx.createBiquadFilter();
+      f.type = 'highpass';
+      f.frequency.value = 2400;
+      env(g, tt, 0.16 * v, 0.002, 0.09);
+      f.connect(g);
+      g.connect(sfx);
+      noise(tt, 0.1, f);
+      const g2 = ctx.createGain();
+      env(g2, tt, 0.05 * v, 0.002, 0.16);
+      g2.connect(sfx);
+      osc(rnd(1800, 3300), tt, 0.16, g2, 'triangle');
+    }
   },
   // Baja la música a 'level' entre t0 y t1 (para las voces).
   duck(level, t0, t1) {

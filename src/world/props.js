@@ -8,6 +8,7 @@ import {FARM_SPEC, buildWheel, syncWheel} from './props-farm.js';
 import {CITY_SPEC} from './props-city.js';
 import {ANTIGUA_SPEC} from './props-antigua.js';
 import {ATITLAN_SPEC} from './props-atitlan.js';
+import {XELA_SPEC} from './props-xela.js';
 
 const C = {
   trunk: hex('#6d4a33'), trunkD: hex('#3f2a22'), leaf: hex('#2f8f4e'), leafD: hex('#1e6b45'), coco: hex('#5c3f22'), cocoG: hex('#6fae3a'),
@@ -434,7 +435,9 @@ export function buildProps() {
   const uni = celUni();
   const mat = new T.ShaderMaterial({vertexShader: VS_CEL, fragmentShader: FS_CEL, uniforms: uni});
   const hullMat = new T.ShaderMaterial({vertexShader: VS_HULL, fragmentShader: FS_HULL, uniforms: uni, side: T.BackSide});
-  Object.assign(SPEC, FARM_SPEC, CITY_SPEC, ANTIGUA_SPEC, ATITLAN_SPEC);
+  Object.assign(SPEC, FARM_SPEC, CITY_SPEC, ANTIGUA_SPEC, ATITLAN_SPEC, XELA_SPEC);
+  // En Xela hay camionetas por todos lados.
+  SPEC.busred = [SPEC.busred[0], 10, SPEC.busred[2]];
   buildWheel();
   for (const name in SPEC) {
     const [fn, cap, sh, noHull] = SPEC[name];
@@ -467,6 +470,11 @@ export function buildProps() {
 }
 function put(name, x, y, z, r, sx, sy, sz, tr, tg, tb, flash) {
   const d = defs[name];
+  if (!d) {
+    if (!put.warned) console.error('Objeto sin modelo: ' + name);
+    put.warned = true;
+    return;
+  }
   if (d.n >= d.cap) return;
   const a = d.m.instanceMatrix.array, o = d.n * 16, c = cos(r), s = sin(r);
   a[o] = c * sx; a[o + 1] = 0; a[o + 2] = -s * sx; a[o + 3] = 0;
@@ -595,13 +603,21 @@ const SIGNS = [
   ['SAN MARCOS LA LAGUNA', '#2d6b52', '#fff3d6'], ['CERRO TZANKUJIL', '#6e4726', '#fff3d6'], ['SAN JUAN LA LAGUNA', '#2d6b52', '#fff3d6'], ['SAN PEDRO LA LAGUNA', '#1b62c9', '#ffc91f'],
   ['Kayaks Q50', '#ff7a1a', '#fff3d6'], ['Hotel Los Volcanes', '#6e4726', '#fff3d6'], ['Comedor La Orilla', '#ffc91f', '#1a1416'], ['Tienda del Muelle', '#e3262f', '#fff3d6'],
   ['Tejidos de San Juan', '#d8263c', '#fff6e6'], ['¡Cuidemos el lago!', '#2bae56', '#fff3d6'], ['Café de San Pedro', '#5a2e1a', '#ffd84a'], ['Clases de español', '#7a3fb0', '#fff3d6'],
+  ['CUMBRE DE ALASKA', '#1f6b3a', '#fff3d6'], ['3,015 metros', '#1f6b3a', '#fff3d6'], ['Cuidado: escarcha', '#ffc91f', '#1a1416'], ['A Cuatro Caminos', '#1f6b3a', '#fff3d6'],
+  ['Atol de elote', '#ffc91f', '#6e4726'], ['CUATRO CAMINOS', '#1f6b3a', '#fff3d6'], ['A Xela', '#1f6b3a', '#fff3d6'], ['A Totonicapán', '#1f6b3a', '#fff3d6'],
+  ['A Huehuetenango', '#1f6b3a', '#fff3d6'], ['SALCAJÁ', '#1b62c9', '#fff3d6'], ['Tejidos de Salcajá', '#d8263c', '#fff6e6'], ['QUETZALTENANGO', '#1f6b3a', '#fff3d6'],
+  ['Comedor La Cumbre', '#ffc91f', '#1a1416'], ['Pan de Xela', '#fff3d6', '#6e4726'], ['BIENVENIDOS A XELA', '#5e5b55', '#fff6e6'], ['TEATRO MUNICIPAL', '#3a3f4a', '#ffd84a'],
+  ['Panadería La Sheca', '#fff3d6', '#6e4726'], ['Chocolate Doña Pancha', '#5a2e1a', '#ffd84a'], ['Escuela de español', '#7a3fb0', '#fff3d6'], ['Hotel Los Altos', '#6e4726', '#fff3d6'],
+  ['Café El Frío', '#1b62c9', '#fff3d6'], ['Tostadas Doña Mary', '#e3262f', '#fff3d6'], ['PARQUE CENTROAMÉRICA', '#2d6b52', '#fff3d6'], ['Pasaje Enríquez', '#3a3f4a', '#fff3d6'],
 ];
 // Proporción con la que se muestra cada letrero. La fila del atlas es de 16:1, así que la letra
 // se dibuja estirada para que en el letrero se vea con su forma real.
 const SIGN_ASPECT = {'¡AGUAS!': 3.3, 'EL MANGLAR': 8.4, 'MUELLE': 8.3, 'Lanchas a La Avellana': 8.2, 'BIENVENIDOS AL PUEBLO': 8.4, 'CAÑAVERALES': 8.4, 'FERIA DE GUAZACAPÁN': 8.4, 'TERMINAL DE BUSES': 8.4, 'BIENVENIDOS A TAXISCO': 8.4, 'FERIA DE TAXISCO': 8.4,
   'CALZADA ROOSEVELT': 6.4, 'ANILLO PERIFÉRICO': 6.4, 'PUENTE EL INCIENSO': 6.4, 'ZONA 1 · CENTRO': 6.4, 'El Trébol': 4.6, 'Respete el semáforo': 6.2, 'Shucos': 3.4,
   'LA ANTIGUA GUATEMALA': 10.4, 'Calle del Arco': 5.2, 'PARQUE CENTRAL': 6.4, 'Derrumbe': 4.2, 'Fresas Q10': 4.2,
-  'PANAJACHEL': 6.6, 'MUELLE PÚBLICO': 7.8, 'SANTA CRUZ LA LAGUNA': 11, 'TZUNUNÁ': 6.6, 'SAN MARCOS LA LAGUNA': 11, 'CERRO TZANKUJIL': 8.9, 'SAN JUAN LA LAGUNA': 11, 'SAN PEDRO LA LAGUNA': 11};
+  'PANAJACHEL': 6.6, 'MUELLE PÚBLICO': 7.8, 'SANTA CRUZ LA LAGUNA': 11, 'TZUNUNÁ': 6.6, 'SAN MARCOS LA LAGUNA': 11, 'CERRO TZANKUJIL': 8.9, 'SAN JUAN LA LAGUNA': 11, 'SAN PEDRO LA LAGUNA': 11,
+  'CUMBRE DE ALASKA': 6.6, '3,015 metros': 5.4, 'Cuidado: escarcha': 6.6, 'A Cuatro Caminos': 6.6, 'Atol de elote': 4.75, 'CUATRO CAMINOS': 8.4, 'A Xela': 5.4, 'A Totonicapán': 7.3, 'A Huehuetenango': 7.3,
+  'SALCAJÁ': 5.4, 'Tejidos de Salcajá': 7.3, 'QUETZALTENANGO': 7.3, 'BIENVENIDOS A XELA': 10, 'TEATRO MUNICIPAL': 7.8, 'PARQUE CENTROAMÉRICA': 8.7};
 // El atlas va en dos columnas para que no pase de 4096 px de alto en ningún teléfono.
 const SIGN_COLS = 2;
 export function drawSignAtlas() {

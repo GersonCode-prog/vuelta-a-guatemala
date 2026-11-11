@@ -1,7 +1,7 @@
 // Suelo único: un shader por tipo de nivel decide qué se pinta según la pista.
 import * as T from 'three';
 import {scene, U} from '../core/gfx.js';
-import {VS_GROUND, FS_GROUND, FS_GROUND_FARM, FS_GROUND_CITY, FS_GROUND_COLONIAL, FS_GROUND_LAKE} from '../core/shaders.js';
+import {VS_GROUND, FS_GROUND, FS_GROUND_FARM, FS_GROUND_CITY, FS_GROUND_COLONIAL, FS_GROUND_LAKE, FS_GROUND_XELA} from '../core/shaders.js';
 
 let mesh, mats, trackTex;
 export function buildGround() {
@@ -32,6 +32,7 @@ export function buildGround() {
     city: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_CITY, uniforms: uni, side: T.DoubleSide}),
     colonial: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_COLONIAL, uniforms: uni, side: T.DoubleSide}),
     lake: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_LAKE, uniforms: uni, side: T.DoubleSide}),
+    xela: new T.ShaderMaterial({vertexShader: VS_GROUND, fragmentShader: FS_GROUND_XELA, uniforms: uni, side: T.DoubleSide}),
   };
   mesh = new T.Mesh(g, mats.beach);
   mesh.frustumCulled = false;

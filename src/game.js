@@ -15,22 +15,24 @@ import {HORSE_V} from './vehicles/horse.js';
 import {BUS_V, exhaustTip} from './vehicles/bus.js';
 import {TUK_V} from './vehicles/tuctuc.js';
 import {LANCHA_V} from './vehicles/lancha.js';
+import {MOTO_V, motoExhaust} from './vehicles/moto.js';
 import {dogBoss} from './bosses/dog.js';
 import {bullBoss} from './bosses/bull.js';
 import {rivalBoss} from './bosses/rival.js';
 import {chocoBoss} from './bosses/choco.js';
 import {xocomilBoss} from './bosses/xocomil.js';
+import {cadejoBoss} from './bosses/cadejo.js';
 import {updateTraffic, resetTraffic, lightAhead, startCop, copOff, COP} from './world/traffic.js';
 import {LEVELS, ORDER} from './levels/index.js';
-import {fetchTop, saveRecord, checkName, plausible} from './core/records.js';
+import {fetchTop, saveRecord, checkName, plausible, LEVEL_IDS} from './core/records.js';
 
 const WET_W = 3.35;
-export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, steer: 0, clock: 80, pkg: 100, q: 0, racha: 1, rachaT: 0, force: 1, stage: 0, hits: 0, turtles: 0, nears: 0, spook: 0, mudT: 0, rear: 0, level: 'monterrico', tricks: 0, encargos: 0, iframes: 0, shake: 0, lines: 0, ts: 1, hitstop: 0, callT: 0, phT: 0, phGap: 1, air: false, trick: 0, trickOn: false, trickCool: 0, sink: 0, spin: 0, hard: false, soft: false, inWater: false, camBlend: 1, camX: 0, wet: 0, fT: 0, impactT: 0, impactInv: false, impactCool: 0, up: {frenos: 0, carton: 0, cadena: 0}, auto: false, god: false, fov: 60, cutT: 0, flashT: 0, onRamp: false, attract: 0, sprint: false, brake: false, deadReason: '', snap: null, bestRun: false, time: 0};
+export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, steer: 0, clock: 80, pkg: 100, q: 0, racha: 1, rachaT: 0, force: 1, stage: 0, hits: 0, turtles: 0, nears: 0, spook: 0, mudT: 0, iceT: 0, rear: 0, level: 'monterrico', tricks: 0, encargos: 0, iframes: 0, shake: 0, lines: 0, ts: 1, hitstop: 0, callT: 0, phT: 0, phGap: 1, air: false, trick: 0, trickOn: false, trickCool: 0, sink: 0, spin: 0, hard: false, soft: false, inWater: false, camBlend: 1, camX: 0, wet: 0, fT: 0, impactT: 0, impactInv: false, impactCool: 0, up: {frenos: 0, carton: 0, cadena: 0}, auto: false, god: false, fov: 60, cutT: 0, flashT: 0, onRamp: false, attract: 0, sprint: false, brake: false, deadReason: '', snap: null, bestRun: false, time: 0};
 export const IN = {left: false, right: false, up: false, down: false, jump: 0, stick: 0, stickOn: false, mouse: false, touchId: null, startX: 0, pedalBtn: false, brakeBtn: false};
 const SET = {flash: store.get('flash', !REDUCED)};
 // El juego no sabe de bicicletas ni caballos: habla con el vehículo y el jefe del nivel actual.
-const VEHICLES = {bike: BIKE_V, horse: HORSE_V, bus: BUS_V, tuk: TUK_V, lancha: LANCHA_V};
-const BOSSES = {dog: dogBoss, bull: bullBoss, rival: rivalBoss, choco: chocoBoss, xocomil: xocomilBoss};
+const VEHICLES = {bike: BIKE_V, horse: HORSE_V, bus: BUS_V, tuk: TUK_V, lancha: LANCHA_V, moto: MOTO_V};
+const BOSSES = {dog: dogBoss, bull: bullBoss, rival: rivalBoss, choco: chocoBoss, xocomil: xocomilBoss, cadejo: cadejoBoss};
 let LV = null, DEF = null, MT = null, VEH = BIKE_V, BOSSK = dogBoss, pal = null, currentLevel = null;
 const BOSS = {on: false, mode: 'off', side: 1, z: 0.7, x: 0, x0: 0, xEnd: 0, t: 0, next: 3, count: 0, aim: 0, eatT: 0, hitDone: false};
 
@@ -164,7 +166,7 @@ function crash(it) {
     if (MT.soft.ruin) {
       it.solid = false;
       it.soft = false;
-      it.tint = [0.58, 0.52, 0.48];
+      it.tint = MT.soft.tint || [0.58, 0.52, 0.48];
       G.iframes = 0.5;
       G.shake = 0.35;
       Audio.land(1);
@@ -330,6 +332,12 @@ function pickup(it) {
     shout('¡Un cafecito!', 1);
     Audio.pickup();
     burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [0.95, 0.5, 0.35], {add: 0});
+  } else if (it.pick === 'sheca') {
+    G.clock += 5;
+    UI.floatTime('+5 s', true);
+    shout('¡Una sheca calientita!', 1);
+    Audio.pickup();
+    burst(it.x, it.y, z, 8, 6, 0.5, 0.16, [0.75, 0.48, 0.25], {add: 0});
   } else if (it.pick === 'tortilla') {
     Audio.pickup();
     if (BOSSK.onPick) BOSSK.onPick(api, it);
@@ -393,7 +401,7 @@ function useLevel(id) {
 function startAt(snap) {
   useLevel(snap.level || 'monterrico');
   Object.assign(G, {dist: snap.dist, stage: snap.stage, q: snap.q, q0: snap.q0 || 0, spent: snap.spent || 0, pkg: max(snap.pkg, snap.dist ? 45 : 100), clock: max(snap.clock, MT.stages[snap.stage].clock * 0.82), up: Object.assign({frenos: 0, carton: 0, cadena: 0}, snap.up), turtles: snap.turtles, hits: snap.hits, nears: snap.nears, tricks: snap.tricks, encargos: snap.encargos,
-    x: LV.center(snap.dist), y: 0, vy: 0, vx: 0, speed: 6, steer: 0, racha: 1, force: 1, iframes: 1.2, wet: 0, air: false, trickOn: false, spin: 0, spook: 0, mudT: 0, rear: 0, tired: 0, trickDone: false, pull: 0, pullT: 0, pullWarn: 0, pullNext: snap.dist ? 7 : 3, ts: 1, phT: 0, phGap: snap.dist ? 1.4 : 0.8, fT: 0, cutT: 0, hitstop: 0, shake: 0, lines: 0.4, state: 'play', auto: G.auto, god: G.god});
+    x: LV.center(snap.dist), y: 0, vy: 0, vx: 0, speed: 6, steer: 0, racha: 1, force: 1, iframes: 1.2, wet: 0, air: false, trickOn: false, spin: 0, spook: 0, mudT: 0, iceT: 0, rear: 0, tired: 0, trickDone: false, pull: 0, pullT: 0, pullWarn: 0, pullNext: snap.dist ? 7 : 3, ts: 1, phT: 0, phGap: snap.dist ? 1.4 : 0.8, fT: 0, cutT: 0, hitstop: 0, shake: 0, lines: 0.4, state: 'play', auto: G.auto, god: G.god});
   BOSS.on = false;
   BOSS.mode = 'off';
   BOSS.count = 0;
@@ -565,7 +573,7 @@ function showResults() {
   if (n > best.stars || (n === best.stars && G.clock > best.clock)) store.set(bestKey(MT.id), {stars: n, clock: G.clock, q: floor(G.q), pkg: ceil(G.pkg)});
   store.set('run', null);
   $('resStop').textContent = 'Parada ' + MT.stop + ' de 6';
-  $('resTitle').textContent = '¡' + MT.name + ', listo!';
+  $('resTitle').textContent = MT.resTitle || '¡' + MT.name + ', listo!';
   $('resNote').innerHTML = MT.note;
   const nx = $('btnNext');
   nx.hidden = !MT.nextId;
@@ -773,22 +781,24 @@ function autoDrive(tr, sh) {
     if (BOSSK.laneCost && BOSS.on) c += BOSSK.laneCost(api, x);
     for (const [it, d] of obs) {
       // Las motos que zigzaguean ocupan todo su vaivén.
-      const weave = it.kind === 'weave' || (city && it.kind === 'crab'), ax = weave ? it.x0 : it.x + (it.vx || 0) * (d / sp);
+      const weave = it.kind === 'weave' || (city && it.kind === 'crab');
+      // La camioneta que sale de la orilla: cuenta desde donde está hasta donde va a quedar.
+      const ax = it.kind === 'merge' ? (it.x + it.xT) / 2 : weave ? it.x0 : it.x + (it.vx || 0) * (d / sp);
       if (it.pick) {
         if (abs(x - ax) < 1.2) c -= it.pick === 'coin' ? 0.6 : 6;
         continue;
       }
-      if (it.mud) {
-        if (d >= 0 && abs(x - ax) < it.w) c += 3;
+      if (it.mud || it.ice) {
+        if (d >= 0 && abs(x - ax) < it.w + (it.ice ? hwV + 0.3 : 0)) c += it.ice ? 14 : 3;
         continue;
       }
       // Lo que está casi encima o a la par: no cruzarse en su camino para llegar al carril.
       if (d < 7 && !(it.h < jumpH && G.y > it.h)) {
-        const band = it.w + hwV + 0.3 + (weave ? abs(it.amp) : 0);
+        const band = it.w + hwV + 0.3 + (weave ? abs(it.amp) : 0) + (it.kind === 'merge' ? abs(it.xT - it.x) / 2 : 0);
         if (abs(G.x - ax) >= band && min(G.x, x) < ax + band && max(G.x, x) > ax - band) c += 70;
       }
       if (d < 0) continue;
-      const clear = it.w + (city ? hwV + 0.55 : 0.75) + (weave ? abs(it.amp) : 0);
+      const clear = it.w + (city ? hwV + 0.55 : 0.75) + (weave ? abs(it.amp) : 0) + (it.kind === 'merge' ? abs(it.xT - it.x) / 2 : 0);
       if (abs(x - ax) < clear) {
         const jumpable = it.h < jumpH && !it.h0;
         c += (jumpable ? 12 : 90) * (1.3 - d / L);
@@ -806,7 +816,7 @@ function autoDrive(tr, sh) {
   // Saltar lo que no se puede esquivar
   if (G.y <= 0) {
     for (const [it, d] of obs) {
-      if (it.pick || it.mud) continue;
+      if (it.pick || it.mud || it.ice) continue;
       if (it.h < jumpH && !it.h0 && abs(G.x - it.x) < it.w + (city ? hwV + 0.1 : 0.5) && d < sp * (farm ? 0.24 : 0.27) && d > 1) IN.jump = 0.12;
     }
     for (const g of LV.gaps) {
@@ -877,6 +887,28 @@ function updateMovers(dt, t) {
       m.D += m.vD * dt;
       const dm = m.D - G.dist;
       if (m.smoke && dm > 6 && dm < 120 && rnd() < dt * 9) fx(3, m.x + rnd(-0.4, 0.4), rnd(1.5, 2.1), -(dm - 2.8), rnd(0.07, 0.13), 1.4, [0.95, 0.92, 0.98], {add: 0, vx: rnd(-0.3, 0.3), vy: rnd(0.5, 1.1), vz: rnd(-0.3, 0.3), grow: 1.25, world: 1});
+    } else if (m.kind === 'merge') {
+      // Camioneta parada en la orilla: cuando llegás, el ayudante grita y se te mete al carril.
+      const dm = m.D - G.dist;
+      if (!m.go && dm < m.trig) {
+        m.go = true;
+        m.gt = 0;
+        if (G.state === 'play' && dm > 4) {
+          const p = screenOf(m.x, 3.4, -dm);
+          UI.call('¡Xela, Xela, Xela!', 2, p.x, p.y);
+          Voice.speak('Ayudante', '¡Xela, Xela, Xela!', {ch: 'shout', chain: 'direct', maxDur: 1.1, gain: 1.2});
+          Audio.honk();
+        }
+      }
+      if (m.go) {
+        m.gt += dt;
+        m.vD = min(m.vMax, m.vD + 6 * dt);
+        m.D += m.vD * dt;
+        const k = sstep(0, 1.5, m.gt);
+        m.x = lerp(m.x0, m.xT, k);
+        m.r = -(m.xT - m.x0) * 0.08 * (1 - k) * (k > 0 ? 1 : 0);
+        if (rnd() < dt * 14 && m.gt < 1.6) fx(3, m.x + rnd(-0.4, 0.4), 0.6, -(m.D - G.dist) + 5, rnd(0.25, 0.4), 1, [0.08, 0.07, 0.08], {add: 0, vy: rnd(0.8, 1.6), vz: rnd(1, 3), grow: 1.4, world: 1});
+      }
     } else if (m.kind === 'weave') {
       // Motos que van zigzagueando entre carriles
       m.D += m.vD * dt;
@@ -904,6 +936,22 @@ function collide(it, prev) {
   const d = it.D - G.dist, sw = G.dist - prev;
   if (it.mud) {
     if (G.y < 0.05 && abs(d) < it.l + sw && abs(G.x - it.x) < it.w) G.mudT = 0.12;
+    return;
+  }
+  // Escarcha: no frena, pero la moto se resbala y tarda en hacerte caso.
+  if (it.ice) {
+    if (G.y < 0.05 && abs(d) < it.l + sw && abs(G.x - it.x) < it.w) {
+      if (G.iceT <= 0 && !it.told) {
+        it.told = true;
+        if (G.callT <= 0) {
+          shout('¡Resbala!', 3);
+          say('¡Resbala!');
+          G.callT = 0.6;
+        }
+        Audio.squeak();
+      }
+      G.iceT = 0.32;
+    }
     return;
   }
   if (it.pick) {
@@ -956,6 +1004,10 @@ function updatePlay(dt, dt0, t) {
   let mul = 1;
   const farm = MT.ground === 'farm';
   if (G.mudT > 0) G.mudT -= dt0;
+  if (G.iceT > 0) {
+    G.iceT -= dt0;
+    G.chip = 'Escarcha';
+  }
   if (farm) {
     if (G.y <= 0.05) {
       const off = abs(G.x - tr.cx) - tr.hw;
@@ -1032,7 +1084,9 @@ function updatePlay(dt, dt0, t) {
   if (G.spook > 0) G.spook -= dt0;
   if (MT.pull) s = updatePull(s, dt0, tr, sh);
   // Al soltar frena más rápido que al arrancar, para esquivar con precisión.
-  G.steer = damp(G.steer, s, s * G.steer < 0 || s === 0 ? PH.steerRel : PH.steer, dt0);
+  // En la escarcha la moto se resbala: el timón tarda en agarrar.
+  const grip = G.iceT > 0 ? 0.16 : 1;
+  G.steer = damp(G.steer, s, (s * G.steer < 0 || s === 0 ? PH.steerRel : PH.steer) * grip, dt0);
   const VX = PH.vx * clamp(G.speed / 16, 0.55, 1);
   G.x += G.steer * VX * dt;
   // Salto y pirueta
@@ -1223,12 +1277,24 @@ function updatePlay(dt, dt0, t) {
     if (MT.vehicle === 'bike' && (G.inWater || G.hard)) {
       const c = col('uFoam');
       fx(3, G.x + rnd(-0.1, 0.1), 0.15, 0.6, rnd(0.05, 0.13), 0.42, c, {add: 0, vx: rnd(-1.5, 1.5), vy: rnd(1.2, G.inWater ? 5 : 3), vz: rnd(2, 6), grav: 15, world: 0.45});
-    } else if (k === 0 && !farm) {
+    } else if (k === 0 && !farm && MT.vehicle !== 'moto') {
       fx(3, G.x + rnd(-0.1, 0.1), 0.12, 0.7, rnd(0.08, 0.2), 0.45, col('uSandB'), {add: 0, vx: rnd(-0.5, 0.5), vy: rnd(0.2, 1), vz: 1, grow: 0.4, world: 0.5});
     }
   }
   if (G.sprint && rnd() < dt0 * 16) fx(3, G.x, rnd(0.4, 1.2), 0.6, 0.04, 0.2, [1.5, 1.4, 1], {add: 1, vz: 10, world: 0.5});
   if (LAKE()) lakeWake(dt0);
+  // El humito de la moto cuando acelera, y el agua que levanta la llanta en la calle mojada.
+  if (MT.vehicle === 'moto') {
+    if ((G.sprint || G.speed < 10) && rnd() < dt0 * (G.sprint ? 14 : 6)) {
+      const q = motoExhaust();
+      fx(3, q.x, q.y, q.z, rnd(0.07, 0.13), 0.7, [0.62, 0.62, 0.68], {add: 0, vx: rnd(-0.3, 0.3), vy: rnd(0.3, 0.9), vz: rnd(1, 3), grow: 0.9, world: 0.85});
+    }
+    const wk = MT.rainAt ? MT.rainAt(G.dist) : 0;
+    if (wk > 0.2 && G.y <= 0.02 && rnd() < dt0 * G.speed * 1.4 * wk) {
+      const c = col('uFoam'), s = rnd() < 0.5 ? -1 : 1;
+      fx(3, G.x + s * rnd(0.05, 0.3), 0.12, 1.1, rnd(0.05, 0.1), 0.42, [c[0] * 0.8, c[1] * 0.85, c[2] * 0.95], {add: 0, vx: s * rnd(0.5, 2.5), vy: rnd(1.5, 3.5), vz: rnd(2, 5), grav: 14, world: 0.45});
+    }
+  }
   // Humo negro del escape cuando la camioneta acelera; y el "psst" de los frenos de aire al parar.
   if (MT.vehicle === 'bus') {
     if (G.sprint && rnd() < dt0 * 20) {
@@ -1480,6 +1546,15 @@ function updatePost(dt0) {
 // Ceniza y humo de la quema, mariposas en los potreros y cohetes sobre la feria.
 function levelFx(t, dt0) {
   const D = G.dist;
+  // Xela: la lluvia de la noche, en rayitas que caen alrededor de la cámara.
+  if (MT.rainAt) {
+    const rk = MT.rainAt(G.state === 'title' ? MT.title.pal : D);
+    let n = dt0 * 250 * rk;
+    while (n > 0) {
+      if (n >= 1 || rnd() < n) fx(4, G.x + rnd(-13, 13), rnd(1.5, 9), -rnd(-2, 36), rnd(0.3, 0.45), 0.42, [0.62, 0.68, 0.82], {a: 0.5, vy: -24, vx: -1.2, rot: 0.06, world: 1});
+      n -= 1;
+    }
+  }
   if (MT.burn && D > MT.burn[0] - 50 && D < MT.burn[1] + 40) {
     if (rnd() < dt0 * 34) fx(3, G.x + rnd(-16, 16), rnd(1, 8), rnd(-40, 2), rnd(0.03, 0.07), 1.5, [0.05, 0.04, 0.04], {add: 0, vx: rnd(-0.6, 0.6), vy: -rnd(0.5, 1.3), vz: rnd(0, 1), world: 1});
     if (rnd() < dt0 * 12) {
@@ -1639,6 +1714,7 @@ export function update(dtR) {
     UI.hud(G, LV);
   }
   Audio.ambient(MT.ambient(G.dist, LV), G.state === 'play' ? G.speed : 0);
+  Audio.engine(MT.vehicle === 'moto' && G.state === 'play' ? 1 : 0, G.speed, G.sprint);
 }
 // Cada pisada del caballo: se oye y levanta polvo o agua.
 function onStep(i, front) {

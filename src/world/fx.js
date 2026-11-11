@@ -21,10 +21,10 @@ export function buildFx() {
   mesh.renderOrder = 10;
   scene.add(mesh);
 }
-// type: 0 brillo · 1 onda · 2 estrella · 3 bola de humo o espuma. add=1: suma luz; add=0: tapa.
+// type: 0 brillo · 1 onda · 2 estrella · 3 bola de humo o espuma · 4 raya de lluvia. add=1: suma luz; add=0: tapa.
 export function fx(type, x, y, z, size, life, c, o = {}) {
   if (list.length >= CAP - 40) list.shift();
-  list.push({type, x, y, z, size, life, max: life, r: c[0], g: c[1], b: c[2], a: o.a ?? 1, add: o.add ?? 1, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, grav: o.grav || 0, grow: o.grow || 0, world: o.world ?? 1, rot: rnd(TAU)});
+  list.push({type, x, y, z, size, life, max: life, r: c[0], g: c[1], b: c[2], a: o.a ?? 1, add: o.add ?? 1, vx: o.vx || 0, vy: o.vy || 0, vz: o.vz || 0, grav: o.grav || 0, grow: o.grow || 0, world: o.world ?? 1, rot: o.rot ?? rnd(TAU)});
 }
 export function tick(type, x, y, z, size, c, a = 1) {
   ticks.push(type, x, y, z, size, c[0], c[1], c[2], a);

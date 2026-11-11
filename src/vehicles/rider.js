@@ -99,8 +99,9 @@ export function armIK(arm, target, pole = [0.8, -0.55, 0.2]) {
   arm.lo.position.copy(_e);
   arm.lo.quaternion.setFromUnitVectors(DOWN, _p.copy(target).sub(_e).normalize());
 }
-// Cabeza de anime: grande, de ojos marcados, con pelo en picos bajo la gorra
-export function buildHead(body) {
+// Cabeza de anime: grande, de ojos marcados, con pelo en picos bajo la gorra.
+// En moto va sin gorra: el casco se pone encima (cap: false).
+export function buildHead(body, {cap = true} = {}) {
   const headG = new T.Group();
   headG.position.set(0, 0.64, -0.325);
   body.add(headG);
@@ -121,18 +122,20 @@ export function buildHead(body) {
     const spike = (j % 3 === 1 ? 0.2 : 0) * (f > 0.15 ? 1 : 0.45);
     return base + spike;
   }, C.hair);
-  dome(h, [0, 0.035, 0], [Rh[0] * 1.11, Rh[1] * 1.12, Rh[2] * 1.11], () => 1.14, C.cap, 24, 5);
-  h.sph([0, 0.235, 0], 0.016, C.white, 0, 3, 5);
-  const br = [];
-  for (let k = 0; k <= 5; k++) {
-    const u = k / 5, cz = -0.135 - 0.215 * u, w = 0.17 - 0.055 * u * u, y = 0.1 - 0.018 * u, o = [];
-    for (let j = 0; j < 12; j++) {
-      const a = (j / 12) * TAU, cx = cos(a);
-      o.push([cx * w, y + sin(a) * 0.011 - 0.032 * cx * cx, cz]);
+  if (cap) {
+    dome(h, [0, 0.035, 0], [Rh[0] * 1.11, Rh[1] * 1.12, Rh[2] * 1.11], () => 1.14, C.cap, 24, 5);
+    h.sph([0, 0.235, 0], 0.016, C.white, 0, 3, 5);
+    const br = [];
+    for (let k = 0; k <= 5; k++) {
+      const u = k / 5, cz = -0.135 - 0.215 * u, w = 0.17 - 0.055 * u * u, y = 0.1 - 0.018 * u, o = [];
+      for (let j = 0; j < 12; j++) {
+        const a = (j / 12) * TAU, cx = cos(a);
+        o.push([cx * w, y + sin(a) * 0.011 - 0.032 * cx * cx, cz]);
+      }
+      br.push(o);
     }
-    br.push(o);
+    h.loft(br, C.cap);
   }
-  h.loft(br, C.cap);
   part(headG, h.build());
   return headG;
 }

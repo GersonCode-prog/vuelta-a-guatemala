@@ -425,9 +425,12 @@ void main(){
     float an=atan(vQ.y,vQ.x);
     float sp=.25+.75*pow(abs(cos(an*3.)),10.)+.4*pow(abs(cos(an*5.+1.)),18.);
     float e=sp*(1.-life*.45);a=1.-smoothstep(e-.1,e,r);
-  }else{
+  }else if(t<3.5){
     // bola de humo o espuma de borde duro
     float e=mix(.92,.3,life);a=1.-smoothstep(e-.08,e,r);
+  }else{
+    // raya de lluvia
+    a=(1.-smoothstep(.03,.07,abs(vQ.x)))*(1.-smoothstep(.5,1.,abs(vQ.y)));
   }
   a=clamp(a,0.,1.)*vC.a;
   gl_FragColor=vec4(vC.rgb*a,a*(1.-add));
@@ -881,6 +884,96 @@ void main(){
   plaza=mix(plaza,uGrass*mix(.8,1.05,vn2(vec2(x*.3,D*.3))),smoothstep(hw+3.,hw+3.2,ax)*(1.-smoothstep(hw+20.,hw+20.2,ax)));
   vec3 col=mix(town,mtn,isMt);
   col=mix(col,plaza,isPl);
+  col=max(col,vec3(0.));
+  col+=col*lampAt(vec3(x,0.,vP.y))*2.2;
+  float dist=length(cameraPosition-vW);
+  gl_FragColor=vec4(mix(col,uFog,smoothstep(uFogA,uFogB,dist)),1.);
+}`;
+// ── Xela: la carretera de la cumbre con helada, el entronque con orillas de tierra,
+// las calles mojadas con sus faroles y el parque. Lo mojado va en los decimales del tramo. ──
+export const FS_GROUND_XELA = `
+precision highp float;
+uniform sampler2D uTrack;
+uniform float uDist,uLen,uTime,uFogA,uFogB,uNight;
+uniform vec3 uSunDir,uSunCol,uShade,uFog,uInk,uSkyTop,uSkyMid,uSkyLow;
+uniform vec3 uSandA,uSandB,uWet,uWaterA,uWaterB,uFoam,uPlank,uStreet,uGrass;
+${LIGHTS}
+${NOISE}
+varying vec2 vP;varying vec3 vW;
+float band(float v,float w,float fw){return 1.-smoothstep(w,w+fw,abs(v));}
+void main(){
+  float x=vP.x,D=uDist-vP.y;
+  vec4 tr=texture2D(uTrack,vec2(clamp(D/uLen,0.,1.),.5));
+  float cx=tr.r,hw=max(tr.g,0.),kind=tr.b,xw=tr.a;
+  float fw=fwidth(x)+.02,fd=fwidth(D)+.02;
+  float far=1.-smoothstep(.05,.4,fd);
+  float dx=x-cx,ax=abs(dx);
+  float isMt=1.-smoothstep(.5,.6,kind);
+  float isCity=smoothstep(1.5,1.6,kind);
+  float isPl=smoothstep(2.5,2.6,kind);
+  float wet=clamp((kind-floor(kind+.05))/.4,0.,1.)*(1.-isMt)*(1.-isPl);
+  float frost=xw*isMt;
+  float box=smoothstep(.72,.78,xw)*(1.-isMt);
+  float zebra=smoothstep(.3,.36,xw)*(1.-box)*(1.-isMt);
+  // Asfalto en tonos, con parches; mojado se oscurece
+  float n1=vn2(vec2(x*.11,D*.045)),n2=vn2(vec2(x*.8,D*.33));
+  vec3 asph=uStreet*(.84+.2*floor((n1*.7+n2*.3)*4.)/4.);
+  asph*=1.-step(.78,vn2(vec2(x*.2+3.,D*.07)))*.12;
+  asph=mix(asph,uStreet*1.3,step(.985,hash21(floor(vec2(x,D)*9.)))*far*.5);
+  asph*=1.-wet*.28;
+  float dash=step(.45,fract(D*.08)),lw=.07;
+  // Cumbre: doble línea amarilla y orillas blancas
+  vec3 rMt=asph;
+  rMt=mix(rMt,uWet,max(band(dx-.13,lw*.8,fw),band(dx+.13,lw*.8,fw)));
+  rMt=mix(rMt,uFoam*.9,max(band(dx-hw+.32,lw,fw),band(dx+hw-.32,lw,fw)));
+  // Entronque: carriles de raya cortada; en Xela, raya amarilla al centro y paso de cebra
+  vec3 rTw=asph;
+  rTw=mix(rTw,uFoam*.86,max(band(dx-1.15,lw,fw),band(dx+1.15,lw,fw))*dash*(1.-isCity));
+  rTw=mix(rTw,uWet,band(dx,lw,fw)*dash*isCity*.85);
+  rTw=mix(rTw,uFoam*.9,max(band(dx-hw+.3,lw,fw),band(dx+hw-.3,lw,fw))*(1.-isCity));
+  rTw=mix(rTw,uFoam*.9,step(.5,fract(x*.85+.25))*zebra*.9);
+  vec3 road=mix(rTw,rMt,isMt);
+  // Monte: piedrín, grama con agujas de pino y la helada blanca
+  float fn=vn2(vec2(x*.09,D*.06)),fn2=vn2(vec2(x*.6,D*.4));
+  vec3 forest=uGrass*mix(.55,1.05,floor((fn*.7+fn2*.3)*4.)/4.);
+  forest=mix(forest,uSandB*.7,step(.8,vn2(vec2(x*.25,D*.2)))*.45);
+  forest=mix(forest,uFoam*.9,frost*smoothstep(.55,.85,vn2(vec2(x*.35,D*.25))+fn*.25)*.7);
+  vec3 shoulder=mix(uSandB*.82,uSandA*.7,hash21(floor(vec2(x,D)*6.))*far*.5);
+  shoulder=mix(shoulder,uFoam*.85,frost*.25);
+  vec3 mside=mix(shoulder,forest,smoothstep(hw+1.3,hw+1.7,ax));
+  float drop=smoothstep(.6,.75,vn2(vec2(D*.004,7.)))*step(dx,0.);
+  mside=mix(mside,mix(uWaterB,uFog,.55+.35*smoothstep(hw+6.,hw+60.,ax)),drop*smoothstep(hw+4.,hw+6.,ax));
+  // Entronque: orilla de tierra con huellas de llanta, y lotes
+  vec3 dirt=uSandB*mix(.78,1.,vn2(vec2(x*.5,D*.25)));
+  dirt=mix(dirt,uSandB*.62,max(band(ax-hw-1.0,.18,fw),band(ax-hw-2.2,.18,fw))*.6);
+  vec3 lots=mix(uSandB*.66,uGrass*.7,step(.6,vn2(vec2(x*.08,D*.05))));
+  vec3 tside=mix(dirt,lots,smoothstep(hw+3.4,hw+3.6,ax));
+  // Ciudad: banqueta de losas grises con su bordillo
+  vec2 bl=fract(vec2(x*.7,D*.55));
+  float bs=smoothstep(.0,.05,bl.x)*smoothstep(.0,.05,bl.y);
+  vec3 walk=uSandA*mix(.8,1.,bs*far+(1.-far))*(1.-wet*.18);
+  vec3 cside=mix(walk,uSandB*.6,smoothstep(hw+1.75,hw+1.85,ax));
+  cside=mix(cside,uFoam*.75,band(ax-hw-.08,.09,fw));
+  vec3 side=mix(tside,cside,isCity);
+  side=mix(side,mside,isMt);
+  vec3 col=mix(road,side,smoothstep(hw-fw,hw+fw,ax));
+  // La calle que cruza
+  col=mix(col,asph*.96,box*step(ax,hw+40.));
+  // Parque: losas grandes y arriates
+  vec2 pg=fract(vec2(x*.55,D*.55));
+  float ps=smoothstep(.0,.04,pg.x)*smoothstep(.0,.04,pg.y);
+  vec3 plaza=mix(uSandA*.8,uPlank*.9,step(.5,fract(floor(x*.55)*.5+floor(D*.55)*.5)))*mix(.78,1.,ps*far+(1.-far));
+  plaza=mix(plaza,uGrass*mix(.8,1.05,vn2(vec2(x*.3,D*.3))),smoothstep(hw+3.,hw+3.2,ax)*(1.-smoothstep(hw+20.,hw+20.2,ax)));
+  col=mix(col,plaza,isPl);
+  // Faroles en la noche: charco de luz en la banqueta y su reflejo largo en el asfalto mojado
+  float lit=clamp(isCity+isPl,0.,1.)*(1.-box);
+  float pool=exp(-pow(mod(D,18.)-9.,2.)*.035)*exp(-pow(ax-hw-1.4,2.)*.06);
+  col+=col*vec3(1.25,.9,.5)*pool*uNight*1.15*lit;
+  float refl=exp(-pow(mod(D,18.)-7.5,2.)*.012)*exp(-pow(ax-hw+.55,2.)*2.6)*(.6+.4*vn2(vec2(x*3.,D*1.5+uTime*2.)));
+  col+=vec3(1.,.78,.45)*refl*uNight*wet*.3*lit;
+  // Gotas que salpican en el asfalto
+  float drops=step(.97,hash21(floor(vec2(x*4.,D*4.))+floor(uTime*7.)))*wet*far;
+  col+=uFoam*drops*.12;
   col=max(col,vec3(0.));
   col+=col*lampAt(vec3(x,0.,vP.y))*2.2;
   float dist=length(cameraPosition-vW);
