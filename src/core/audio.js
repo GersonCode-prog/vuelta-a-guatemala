@@ -956,6 +956,15 @@ export const Audio = {
     g.connect(sfx);
     noise(t, 0.52, f);
   },
+  // Pito de marimba del ropero: tres notas para arriba
+  marimbita() {
+    if (!init()) return;
+    const t = ctx.currentTime;
+    [79, 83, 86].forEach((m, i) => {
+      marimba(mtof(m), t + i * 0.09, 0.3, 0.3, sfx, 0);
+      marimba(mtof(m - 12), t + i * 0.09, 0.16, 0.2, sfx, 0);
+    });
+  },
   // Pito de la moto: dos piquitos agudos
   claxon() {
     if (!init()) return;

@@ -134,6 +134,29 @@ En Monterrico y en la capital también hay jalones: el viento del mar y la camio
 
 Turbo no se maneja como la bicicleta: pesa más, se cansa cuando lo apurás y brinca más alto. Va más rápido por la tierra que por el pasto, se atasca en el lodo y se asusta con los cohetillos.
 
+## Ropero
+
+Las propinas de cada parada que terminás caen en una alcancía. Con ella, en el **Ropero** del título, comprás camisas, gorras y cascos, fajas, calcomanías para el paquete, pitos y pintura para la moto. Hay tres cosas que no se compran: el casco de oro (terminar Xela), la faja de quetzal (5 estrellas en una parada) y la camisa de campeón (5 estrellas en las 6). Nada de esto da ventaja: solo cambia cómo te ves.
+
+El ropero se guarda en el aparato y también en Supabase, en un perfil anónimo que se crea solo con la primera propina. Con **Guardar con Google** el perfil queda unido a tu cuenta y no se pierde aunque cambiés de teléfono. La [política de privacidad](https://gersoncode-prog.github.io/vuelta-a-guatemala/privacidad.html) explica qué se guarda.
+
+Si hacés tu propia copia, activá en Supabase los inicios de sesión anónimos y la unión manual de cuentas (Authentication → Sign In / Providers), configurá Google si lo querés, y creá la tabla:
+
+```sql
+create table public.perfiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  alcancia int not null default 0 check (alcancia between 0 and 1000000),
+  ropa jsonb not null default '{}'::jsonb,
+  estrellas jsonb not null default '{}'::jsonb,
+  actualizado timestamptz not null default now()
+);
+alter table public.perfiles enable row level security;
+create policy "Cada quien ve su perfil" on public.perfiles for select to authenticated using (auth.uid() = id);
+create policy "Cada quien crea su perfil" on public.perfiles for insert to authenticated with check (auth.uid() = id);
+create policy "Cada quien cambia su perfil" on public.perfiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+grant select, insert, update on public.perfiles to authenticated;
+```
+
 ## Récords
 
 Al terminar una parada podés guardar tu nombre, y el botón **Récords** del título muestra los diez mejores de cada parada a cualquiera que entre. Gana el de más estrellas; si empatan, al que le sobró más tiempo.
@@ -220,7 +243,7 @@ Cada nivel nuevo es un archivo en `levels/`, cada vehículo uno en `vehicles/` y
 
 ## Tecnologías
 
-[Three.js](https://threejs.org) para el 3D, [anime.js](https://animejs.com) para la interfaz, [Tailwind CSS](https://tailwindcss.com) para los estilos, [Vite](https://vite.dev) para compilar y Web Audio para el sonido. Letras: Shrikhand y Barlow Condensed.
+[Three.js](https://threejs.org) para el 3D, [anime.js](https://animejs.com) para la interfaz, [Supabase](https://supabase.com) para los récords y los perfiles, [Tailwind CSS](https://tailwindcss.com) para los estilos, [Vite](https://vite.dev) para compilar y Web Audio para el sonido. Letras: Shrikhand y Barlow Condensed.
 
 ## Licencia
 

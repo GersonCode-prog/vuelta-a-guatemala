@@ -25,6 +25,8 @@ import {cadejoBoss} from './bosses/cadejo.js';
 import {updateTraffic, resetTraffic, lightAhead, startCop, copOff, COP} from './world/traffic.js';
 import {LEVELS, ORDER} from './levels/index.js';
 import {fetchTop, saveRecord, checkName, plausible, LEVEL_IDS} from './core/records.js';
+import {SLOTS, ITEMS, NEED_TEXT, alcancia, unlocked, buy, wear, earn, specialsNow, apply as applyOutfit, pitoOf, P as PERFIL} from './core/ropero.js';
+import {initPerfil, google, syncNow, onPerfil, GOOGLE_OK, S as NUBE} from './core/perfil.js';
 
 const WET_W = 3.35;
 export const G = {state: 'boot', dist: 0, speed: 0, x: 0, y: 0, vy: 0, vx: 0, steer: 0, clock: 80, pkg: 100, q: 0, racha: 1, rachaT: 0, force: 1, stage: 0, hits: 0, turtles: 0, nears: 0, spook: 0, mudT: 0, iceT: 0, rear: 0, level: 'monterrico', tricks: 0, encargos: 0, iframes: 0, shake: 0, lines: 0, ts: 1, hitstop: 0, callT: 0, phT: 0, phGap: 1, air: false, trick: 0, trickOn: false, trickCool: 0, sink: 0, spin: 0, hard: false, soft: false, inWater: false, camBlend: 1, camX: 0, wet: 0, fT: 0, impactT: 0, impactInv: false, impactCool: 0, up: {frenos: 0, carton: 0, cadena: 0}, auto: false, god: false, fov: 60, cutT: 0, flashT: 0, onRamp: false, attract: 0, sprint: false, brake: false, deadReason: '', snap: null, bestRun: false, time: 0};
@@ -569,6 +571,7 @@ function showResults() {
     [G.turtles === 0, MT.soft.check],
   ];
   const n = checks.filter((c) => c[0]).length;
+  const unl0 = specialsNow();
   const best = store.get(bestKey(MT.id), {stars: 0, clock: 0, q: 0});
   if (n > best.stars || (n === best.stars && G.clock > best.clock)) store.set(bestKey(MT.id), {stars: n, clock: G.clock, q: floor(G.q), pkg: ceil(G.pkg)});
   store.set('run', null);
@@ -588,6 +591,10 @@ function showResults() {
   // Récord para la tabla de todos: propinas ganadas en esta parada, sin contar lo que traías.
   REC.pending = {nivel: MT.id, estrellas: n, tiempo: Math.round(max(0, G.clock) * 10) / 10, propinas: max(0, floor(G.q - (G.q0 || 0) + (G.spent || 0))), paquete: ceil(G.pkg)};
   REC.saved = false;
+  // Las propinas de la parada caen en la alcancía del ropero; las estrellas pueden desbloquear ropa.
+  const nuevos = earn(MT.id, REC.pending.propinas, n, unl0);
+  $('resNote').innerHTML = MT.note + ' <span class="text-oro">+Q' + REC.pending.propinas + ' a tu alcancía.</span>';
+  if (nuevos.length) setTimeout(() => UI.toast('¡Desbloqueaste en el ropero: ' + nuevos.map((i) => i.name + ' (' + SLOTS.find((s) => s.id === i.slot).name.toLowerCase() + ')').join(', ') + '!'), 1400);
   $('recName').value = store.get('name', '');
   $('recMsg').textContent = '';
   $('btnRecSave').disabled = false;
@@ -1780,7 +1787,7 @@ function bindInput() {
         IN.jump = 0.14;
       }
     }
-    if (e.code === 'KeyB' && G.state === 'play') Audio[VEH.call()]();
+    if (e.code === 'KeyB' && G.state === 'play') honk();
     if (e.code === 'KeyP' || e.code === 'Escape') {
       if (G.state === 'play') pauseGame();
       else if (G.state === 'pause') resumeGame();
@@ -1876,7 +1883,14 @@ function bindInput() {
     Audio.ui();
     showRecTab(b.dataset.rec);
   }));
-  $('btnBell').addEventListener('click', () => Audio[VEH.call()]());
+  $('btnBell').addEventListener('click', honk);
+  $('btnRopero').addEventListener('click', openRopero);
+  $('btnRopBack').addEventListener('click', closeRopero);
+  $('btnGoogle').addEventListener('click', () => {
+    Audio.ui();
+    $('ropCuenta').textContent = 'Abriendo Google…';
+    google().catch(() => ($('ropCuenta').textContent = 'No se pudo abrir Google. Revisá tu internet.'));
+  });
   $('btnResume').addEventListener('click', resumeGame);
   $('btnPause').addEventListener('click', pauseGame);
   $('btnRestart').addEventListener('click', () => {
@@ -2015,6 +2029,12 @@ export function boot() {
   }
   bindInput();
   UI.init();
+  applyOutfit();
+  onPerfil(() => {
+    paintCuenta();
+    if (!$('scrRopero').hidden) $('ropQ').textContent = 'Q' + alcancia();
+  });
+  initPerfil((t) => UI.toast(t)).catch(() => {});
   if (document.fonts && document.fonts.load) {
     Promise.all([document.fonts.load('400 40px "Shrikhand"', 'Tienda La Bendición ¡AGUAS!')]).then(() => {
       drawSignAtlas();
@@ -2032,7 +2052,7 @@ export function boot() {
   };
   requestAnimationFrame(loop);
   if (TEST.expose || location.hash === '#vag-debug') {
-    window.__VAG = {cam: camera, cutCam, renderer, scene, G, IN, U, P, VIEW, BOSS, VEHICLES, UI, Audio, Voice, anime, COP, lightAhead, startCop, get LV() { return LV; }, get MT() { return MT; }, get VEH() { return VEH; }, get BOSSK() { return BOSSK; }, frame, update, syncAll, renderFrame, newRun, startAt, useLevel, pickLevel, pauseGame, openRecords, REC, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop,
+    window.__VAG = {cam: camera, cutCam, renderer, scene, G, IN, U, P, VIEW, BOSS, VEHICLES, UI, Audio, Voice, anime, COP, lightAhead, startCop, get LV() { return LV; }, get MT() { return MT; }, get VEH() { return VEH; }, get BOSSK() { return BOSSK; }, frame, update, syncAll, renderFrame, newRun, startAt, useLevel, pickLevel, pauseGame, openRecords, REC, resumeGame, goTitle, fail, finish, showResults, openShop, startBoss, renderShop, leaveShop, PERFIL, NUBE, renderRopero, applyOutfit,
       jump(D, st) {
         G.dist = D;
         G.stage = st;
@@ -2041,6 +2061,72 @@ export function boot() {
         for (const c of LV.calls) if (c.D < D) c.done = true;
       }};
   }
+}
+// ── Ropero ──
+const honk = () => Audio[pitoOf() || VEH.call()]();
+const ROP = {slot: 'camisa'};
+function openRopero() {
+  Audio.ui();
+  UI.hideScreen('scrTitle', () => {});
+  UI.showScreen('scrRopero');
+  renderRopero();
+  syncNow();
+}
+function closeRopero() {
+  Audio.ui();
+  UI.hideScreen('scrRopero', () => {});
+  $('scrTitle').hidden = false;
+  UI.titleIn();
+  if (!COARSE) $('btnStart').focus({preventScroll: true});
+}
+const swatch = (it) => {
+  const L = it.look;
+  if (Array.isArray(L)) return L.map((c) => '<i class="sw" style="background:' + (Array.isArray(c) ? 'rgb(' + c.map((v) => Math.round(Math.pow(v, 1 / 2.2) * 255)).join(',') + ')' : c) + '"></i>').join('');
+  if (typeof L === 'string' && L[0] === '#') return '<i class="sw" style="background:' + L + '"></i>';
+  return '';
+};
+function renderRopero() {
+  $('ropQ').textContent = 'Q' + alcancia();
+  const T = $('ropTabs');
+  T.innerHTML = SLOTS.map((s) => '<button class="chip" role="tab" data-slot="' + s.id + '" aria-selected="' + (s.id === ROP.slot) + '">' + s.name + '</button>').join('');
+  T.querySelectorAll('[data-slot]').forEach((b) => b.addEventListener('click', () => {
+    Audio.ui();
+    ROP.slot = b.dataset.slot;
+    renderRopero();
+  }));
+  const L = $('ropList');
+  L.innerHTML = '';
+  ITEMS.filter((i) => i.slot === ROP.slot).forEach((it) => {
+    const on = PERFIL.puesto[it.slot] === it.id, has = unlocked(it);
+    const row = document.createElement('div');
+    row.className = 'shoprow';
+    row.innerHTML = '<div class="min-w-0"><p class="font-display text-[1.15rem] leading-tight">' + swatch(it) + it.name + '</p><p class="note">' + (it.need && !has ? '🔒 ' + NEED_TEXT[it.need] : it.desc) + '</p></div>';
+    const b = document.createElement('button');
+    b.className = 'btn btn-2 shrink-0';
+    b.innerHTML = '<span>' + (on ? 'Puesto' : has ? 'Ponértelo' : it.need ? 'Bloqueado' : 'Q' + it.price) + '</span>';
+    b.disabled = on || (!has && (it.need || alcancia() < it.price));
+    b.addEventListener('click', () => {
+      if (has ? wear(it) : buy(it)) {
+        if (has) Audio.ui();
+        else Audio.buy();
+        if (it.slot === 'pito') setTimeout(honk, 150);
+        renderRopero();
+      }
+    });
+    row.appendChild(b);
+    L.appendChild(row);
+  });
+  paintCuenta();
+}
+function paintCuenta() {
+  const c = $('ropCuenta'), g = $('btnGoogle');
+  if (!c) return;
+  g.hidden = !GOOGLE_OK || NUBE.google;
+  if (NUBE.google) c.textContent = 'Guardado con Google' + (NUBE.email ? ' (' + NUBE.email + ')' : '') + '. No se pierde aunque cambiés de teléfono.';
+  else if (!GOOGLE_OK) c.textContent = 'Tu ropa y tu alcancía se guardan en este aparato.';
+  else if (NUBE.sync === 'error') c.textContent = 'Sin conexión: se guarda en este aparato y se sube después.';
+  else if (NUBE.user) c.textContent = 'Guardado en la nube. Para no perderlo nunca, guardalo con Google.';
+  else c.textContent = 'Por ahora se guarda en este aparato. Guardalo con Google para no perderlo nunca.';
 }
 function updatePaletteInit() {
   MT = LEVELS.monterrico.META;

@@ -7,10 +7,35 @@ import {PI, TAU, cos, sin, sqrt, min, max, clamp, lerp, sstep} from '../core/uti
 
 export const C = {
   frame: hex('#12b5b0'), frameD: hex('#0b7f86'), tire: hex('#1a1416'), rim: hex('#d8d3cc'), seat: hex('#2a1f1c'), shirt: hex('#ffc91f'), stripe: hex('#e3262f'), guard: hex('#e3262f'),
-  short: hex('#27305e'), skin: hex('#c68a5e'), skinD: hex('#a56a44'), shoe: hex('#fff3d6'), sock: hex('#f5ecd9'), cap: hex('#e3262f'), hair: hex('#1a1013'), ink: hex('#17100e'), white: hex('#fffaf0'), lamp: hex('#ffd76a'),
+  short: hex('#27305e'), skin: hex('#c68a5e'), skinD: hex('#a56a44'), shoe: hex('#fff3d6'), sock: hex('#f5ecd9'), cap: hex('#e4262f'), hair: hex('#1a1013'), ink: hex('#17100e'), white: hex('#fffaf0'), lamp: hex('#ffd76a'),
   box: hex('#c98a4b'), boxD: hex('#8d5a2a'), string: hex('#fff3d6'), tape: hex('#c9c4bb'),
 };
 let mat, hullMat, partLayer = 1;
+// ── Ropero: la ropa del repartidor se cambia pintando de nuevo los colores de sus piezas ──
+const OUTFIT = [];
+// Guarda la geometría con sus colores originales para poder volver a pintarla.
+export function tagOutfit(geo, group = 'rider') {
+  OUTFIT.push({geo, group, base: Float32Array.from(geo.attributes.aCol.array)});
+  return geo;
+}
+const same = (a, i, c) => Math.abs(a[i] - c[0]) < 1e-4 && Math.abs(a[i + 1] - c[1]) < 1e-4 && Math.abs(a[i + 2] - c[2]) < 1e-4;
+// swaps: [[color original, color nuevo], ...] para un grupo de piezas.
+export function repaint(group, swaps) {
+  for (const o of OUTFIT) {
+    if (o.group !== group) continue;
+    const a = o.geo.attributes.aCol.array, b = o.base;
+    for (let i = 0; i < b.length; i += 3) {
+      let c = null;
+      for (const [from, to] of swaps) if (same(b, i, from)) c = to;
+      a[i] = c ? c[0] : b[i];
+      a[i + 1] = c ? c[1] : b[i + 1];
+      a[i + 2] = c ? c[2] : b[i + 2];
+    }
+    o.geo.attributes.aCol.needsUpdate = true;
+  }
+}
+// Colores de la faja típica: franja de en medio (dos tonos) y las orillas.
+export const FAJA = {uA: {value: new T.Vector3(0.82, 0.04, 0.07)}, uB: {value: new T.Vector3(1, 0.72, 0.05)}, uC: {value: new T.Vector3(0.02, 0.55, 0.58)}};
 export function initMats() {
   if (mat) return;
   const uni = celUni();
@@ -66,7 +91,7 @@ export function buildTorso(body) {
   t.loft([[0, 0.465, -0.2, 0.082, 0.075], [0, 0.51, -0.23, 0.075, 0.07]].map((q) => ring([q[0], q[1], q[2]], U0, V0, q[3], q[4], 14)), C.stripe);
   t.sph([0, 0.48, -0.13], [0.035, 0.03, 0.03], C.stripe, 0, 5, 7);
   [-1, 1].forEach((s) => t.sph([s * SHOULDER[0], SHOULDER[1], SHOULDER[2]], 0.078, C.shirt, 0, 7, 10));
-  return part(body, t.build());
+  return part(body, tagOutfit(t.build()));
 }
 // Brazos: se ajustan solos para que las manos sigan donde deben.
 export function buildArms(body) {
@@ -78,7 +103,7 @@ export function buildArms(body) {
   const loG = new GeoB();
   loG.curve([[0, 0, 0], [0, -ARM_B * 0.4, 0], [0, -ARM_B, 0]], (q) => lerp(0.042, 0.03, q), C.skin, 8);
   loG.sph([0, -ARM_B - 0.02, 0], [0.042, 0.05, 0.042], C.skin, 0, 6, 8);
-  const upper = upG.build(), lower = loG.build();
+  const upper = tagOutfit(upG.build()), lower = tagOutfit(loG.build());
   return [-1, 1].map((s) => ({side: s, up: part(body, upper), lo: part(body, lower)}));
 }
 const _s = new T.Vector3(), _d = new T.Vector3(), _p = new T.Vector3(), _e = new T.Vector3(), DOWN = new T.Vector3(0, -1, 0);
@@ -136,7 +161,7 @@ export function buildHead(body, {cap = true} = {}) {
     }
     h.loft(br, C.cap);
   }
-  part(headG, h.build());
+  part(headG, tagOutfit(h.build()));
   return headG;
 }
 export function buildLegGeos() {
@@ -151,7 +176,7 @@ export function buildLegGeos() {
   const shoeG = new GeoB();
   shoeG.sph([0, -0.035, -0.055], [0.058, 0.044, 0.125], C.shoe, 0, 7, 9);
   shoeG.box(0, -0.078, -0.055, 0.056, 0.008, 0.118, C.stripe);
-  return {thigh: tg.build(), shin: sn.build(), shoe: shoeG.build()};
+  return {thigh: tagOutfit(tg.build()), shin: tagOutfit(sn.build()), shoe: tagOutfit(shoeG.build())};
 }
 export function buildLeg(parent, geos, x, y, z, side) {
   const hip = new T.Group();
@@ -170,7 +195,11 @@ export function buildLeg(parent, geos, x, y, z, side) {
 }
 
 // ── Paquete: es lo que más se ve en toda la partida ──
-const LABEL = {canvas: null, tex: null};
+const LABEL = {canvas: null, tex: null, text: 'FRÁGIL'};
+export function setLabel(text) {
+  LABEL.text = text || 'FRÁGIL';
+  if (LABEL.canvas) drawLabel();
+}
 export function drawLabel() {
   const c = LABEL.canvas, g = c.getContext('2d'), W = c.width, H = c.height;
   g.fillStyle = '#fff3d6';
@@ -182,7 +211,8 @@ export function drawLabel() {
   g.font = '400 92px "Shrikhand", "Arial Black", Impact, sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText('FRÁGIL', W / 2, H / 2 + 4, W - 60);
+  g.font = '400 ' + (LABEL.text.length > 8 ? 70 : 92) + 'px "Shrikhand", "Arial Black", Impact, sans-serif';
+  g.fillText(LABEL.text, W / 2, H / 2 + 4, W - 60);
   if (LABEL.tex) LABEL.tex.needsUpdate = true;
 }
 export function buildPackage(parent, x, y, z, s = 1) {
@@ -253,7 +283,7 @@ export function buildRibbon({N = 14, seg = 0.1, width = (t) => 0.075 * (1 - t * 
   g.setAttribute('position', new T.BufferAttribute(pos, 3).setUsage(T.DynamicDrawUsage));
   g.setAttribute('uv', new T.BufferAttribute(uv, 2));
   g.setIndex(idx);
-  const m = new T.Mesh(g, new T.ShaderMaterial({vertexShader: VS_SCARF, fragmentShader: fragment, side: T.DoubleSide, uniforms: Object.assign({uBend: U.uBend, uCamZ: U.uCamZ, uSunCol: U.uSunCol, uShade: U.uShade}, uniforms)}));
+  const m = new T.Mesh(g, new T.ShaderMaterial({vertexShader: VS_SCARF, fragmentShader: fragment, side: T.DoubleSide, uniforms: Object.assign({uBend: U.uBend, uCamZ: U.uCamZ, uSunCol: U.uSunCol, uShade: U.uShade}, fragment === FS_SCARF ? FAJA : {}, uniforms)}));
   m.frustumCulled = false;
   m.layers.enable(layer);
   scene.add(m);

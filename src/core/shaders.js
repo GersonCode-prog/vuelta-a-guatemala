@@ -464,16 +464,16 @@ varying vec2 vUv;
 void main(){vUv=uv;gl_Position=projectionMatrix*viewMatrix*bendW(vec4(position,1.));}`;
 export const FS_SCARF = `
 precision highp float;
-uniform vec3 uSunCol,uShade;
+uniform vec3 uSunCol,uShade,uA,uB,uC;
 varying vec2 vUv;
 void main(){
   float t=clamp(vUv.x,0.,1.),s=clamp(vUv.y,0.,1.);
-  // tejido: rombos y franjas como un corte típico
+  // tejido: rombos y franjas como un corte típico (los colores salen del ropero)
   float rows=floor(s*5.);
   float z=abs(fract(t*22.+rows*.5)-.5)*2.;
-  vec3 c=vec3(.82,.04,.07);
-  if(rows==2.){c=z>.5?vec3(1.,.72,.05):vec3(.02,.55,.58);}
-  if(rows==1.||rows==3.)c=z>.72?vec3(.95,.9,.75):vec3(.82,.04,.07);
+  vec3 c=uA;
+  if(rows==2.){c=z>.5?uB:uC;}
+  if(rows==1.||rows==3.)c=z>.72?vec3(.95,.9,.75):uA;
   gl_FragColor=vec4(c*mix(uSunCol,vec3(1.),.35),1.);
 }`;
 // ── Cola del caballo: mechones oscuros con brillo ──

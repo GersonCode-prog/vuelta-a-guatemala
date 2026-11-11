@@ -5,7 +5,7 @@ import {GeoB, hex} from '../core/geo.js';
 import {scene, U} from '../core/gfx.js';
 import {VS_TEX, FS_TEX} from '../core/shaders.js';
 import {PI, TAU, abs, cos, sin, sqrt, atan2, acos, min, clamp, damp, lerp, sstep} from '../core/util.js';
-import {C, initMats, part, setPartLayer, dome, L1, L2, NECK_KNOT, buildTorso, buildArms, armIK, buildHead, buildLegGeos, buildLeg, buildPackage, updatePackage, buildRibbon, updateRibbon, resetRibbon, worldOf} from './rider.js';
+import {C, initMats, part, setPartLayer, dome, tagOutfit, L1, L2, NECK_KNOT, buildTorso, buildArms, armIK, buildHead, buildLegGeos, buildLeg, buildPackage, updatePackage, buildRibbon, updateRibbon, resetRibbon, worldOf} from './rider.js';
 
 const K = {
   red: hex('#d8262c'), redD: hex('#9e1a22'), oro: hex('#ffc91f'), turq: hex('#12b5b0'), cream: hex('#fff3d6'), white: hex('#fbfaf6'),
@@ -15,6 +15,7 @@ const K = {
 const R_W = 0.33, FZ = -0.7, RZ = 0.64, HEAD = [0, 0.98, -0.47];
 // Cadera, puños y pedales del piloto, en coordenadas de la moto.
 const HIP = [0.12, 0.94, 0.2], PEG = [0.2, 0.44, -0.02], GRIP = [0.36, 0.1, 0.04];
+export const MOTO_COL = K;
 export const MOTO = {root: null, tilt: null, front: null, bar: null, wheels: [], body: null, head: null, arms: null, legs: null, pkg: null, scarf: null, brake: null, lean: 0};
 
 function plateTexture() {
@@ -129,7 +130,7 @@ function buildMoto() {
   });
   // Pedales del piloto
   [-1, 1].forEach((s) => b.tube([s * 0.1, PEG[1], PEG[2]], [s * 0.24, PEG[1], PEG[2]], 0.02, 0.02, K.ink, 5));
-  part(tilt, b.build());
+  part(tilt, tagOutfit(b.build(), 'moto'));
   // Placa con el nombre, viendo hacia atrás
   const plate = new T.Mesh(new T.PlaneGeometry(0.42, 0.13), new T.ShaderMaterial({vertexShader: VS_TEX, fragmentShader: FS_TEX, uniforms: {uBend: U.uBend, uCamZ: U.uCamZ, uSunCol: U.uSunCol, uShade: U.uShade, uMap: {value: plateTexture()}}}));
   plate.position.set(0, 0.68, 0.99);
@@ -161,7 +162,7 @@ function buildMoto() {
   f.tube([0, -0.03, -0.06], [0, -0.03, -0.15], 0.11, 0.125, K.chrome, 12);
   f.tube([0, -0.03, -0.15], [0, -0.03, -0.16], 0.1, 0.1, K.lamp, 12, 2.8);
   [-1, 1].forEach((s) => f.sph([s * 0.17, -0.05, -0.08], [0.03, 0.025, 0.04], K.amber, 1.6, 4, 6));
-  part(front, f.build());
+  part(front, tagOutfit(f.build(), 'moto'));
   const wg = wheelGeo();
   const wf = part(front, wg);
   wf.position.set(0, ax[1], ax[2]);
@@ -191,7 +192,7 @@ function buildMoto() {
   buildTorso(body);
   MOTO.arms = buildArms(body);
   MOTO.head = buildHead(body, {cap: false});
-  part(MOTO.head, helmetGeo());
+  part(MOTO.head, tagOutfit(helmetGeo(), 'casco'));
   const geos = buildLegGeos();
   MOTO.legs = [-1, 1].map((s) => {
     const lg = buildLeg(tilt, geos, HIP[0] * s, HIP[1], HIP[2], s);

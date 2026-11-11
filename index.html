@@ -86,6 +86,7 @@
         <button id="btnStart" class="btn btn-main" data-focus>Arrancar en Monterrico</button>
         <button id="btnContinue" class="btn btn-2" hidden><span>Seguir</span></button>
         <button id="btnRecords" class="btn btn-2"><span>Récords</span></button>
+        <button id="btnRopero" class="btn btn-2"><span>Ropero</span></button>
         <p id="bestLine" class="legend font-semibold"></p>
       </div>
       <div id="route" data-in aria-label="Ruta del repartidor">
@@ -185,6 +186,19 @@
     <ol id="recList" aria-live="polite" data-in></ol>
     <p id="recNote" class="note" data-in></p>
     <div class="flex flex-wrap gap-3" data-in><button id="btnRecBack" class="btn btn-main" data-focus>Volver</button></div>
+  </section>
+  <!-- ROPERO -->
+  <section id="scrRopero" class="screen gutter hdim pt-safe pb-safe flex flex-col screen-c gap-2.5 z-30" hidden>
+    <p class="lab" data-in>Para que te vean bien chilero en el camino</p>
+    <h2 class="rotulo bigline" data-in>Ropero</h2>
+    <p class="note" data-in>En tu alcancía: <b id="ropQ" class="text-oro text-xl">Q0</b>. Las propinas de cada parada que terminás caen aquí.</p>
+    <div id="ropTabs" class="flex flex-wrap gap-2" role="tablist" aria-label="Qué cambiar" data-in></div>
+    <div id="ropList" class="flex flex-col gap-1.5" data-in></div>
+    <p id="ropCuenta" class="note" role="status" data-in></p>
+    <div class="flex flex-wrap gap-3" data-in>
+      <button id="btnRopBack" class="btn btn-main" data-focus>Listo</button>
+      <button id="btnGoogle" class="btn btn-2"><span>Guardar con Google</span></button>
+    </div>
   </section>
   <div id="toast" class="z-40" role="status" hidden></div>
 </div>

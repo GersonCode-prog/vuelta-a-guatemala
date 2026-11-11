@@ -1,8 +1,9 @@
 // Récords para todos: se guardan en Supabase y cualquiera los puede ver.
 // La llave publicable está hecha para ir en páginas web: solo deja leer y agregar récords
 // (las reglas de la tabla no permiten editar ni borrar).
-const URL = 'https://vvazgkziqvzdkosnpoiu.supabase.co/rest/v1/records';
-const KEY = 'sb_publishable_QD4FoCopCMMZG96Cf_SWfg_UTYIFU0-';
+export const BASE = 'https://vvazgkziqvzdkosnpoiu.supabase.co';
+const URL = BASE + '/rest/v1/records';
+export const KEY = 'sb_publishable_QD4FoCopCMMZG96Cf_SWfg_UTYIFU0-';
 export const LEVEL_IDS = ['monterrico', 'taxisco', 'capital', 'antigua', 'atitlan', 'xela'];
 
 const headers = (extra = {}) => Object.assign({apikey: KEY}, extra);
