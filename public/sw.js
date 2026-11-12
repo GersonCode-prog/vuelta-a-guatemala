@@ -1,6 +1,6 @@
 // Guarda el juego en el teléfono: la página siempre busca la versión nueva primero,
 // y lo demás (código, fuentes, imágenes) sale de lo guardado para cargar rápido y sin señal.
-const CACHE = 'vag-0.8.0';
+const CACHE = 'vag-0.8.1';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', (e) => {

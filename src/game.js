@@ -25,7 +25,7 @@ import {cadejoBoss} from './bosses/cadejo.js';
 import {updateTraffic, resetTraffic, lightAhead, startCop, copOff, COP} from './world/traffic.js';
 import {LEVELS, ORDER} from './levels/index.js';
 import {fetchTop, saveRecord, checkName, plausible, LEVEL_IDS} from './core/records.js';
-import {SLOTS, ITEMS, NEED_TEXT, alcancia, unlocked, buy, wear, earn, specialsNow, apply as applyOutfit, pitoOf, P as PERFIL} from './core/ropero.js';
+import {SLOTS, ITEMS, NEED_TEXT, alcancia, unlocked, buy, wear, earn, specialsNow, stars as bestStars, apply as applyOutfit, pitoOf, P as PERFIL} from './core/ropero.js';
 import {initPerfil, google, syncNow, onPerfil, GOOGLE_OK, S as NUBE} from './core/perfil.js';
 
 const WET_W = 3.35;
@@ -711,7 +711,13 @@ function refreshTitle() {
   const show = run && (run.stage > 0 || run.dist > 0);
   cont.hidden = !show;
   if (show) cont.firstElementChild.textContent = 'Seguir en ' + MT.stages[run.stage].name;
-  document.querySelectorAll('#route [data-level]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.level === MT.id ? 'true' : 'false'));
+  document.querySelectorAll('#route [data-level]').forEach((b) => {
+    b.setAttribute('aria-pressed', b.dataset.level === MT.id ? 'true' : 'false');
+    // Tus mejores estrellas en cada parada
+    const n = bestStars(b.dataset.level), st = b.querySelector('.st');
+    if (st) st.innerHTML = n ? '★'.repeat(n) + '<i>' + '★'.repeat(5 - n) + '</i>' : '';
+    b.setAttribute('aria-label', b.querySelector('b').textContent + ', ' + b.querySelector('span').textContent + (n ? ', ' + n + ' de 5 estrellas' : ''));
+  });
 }
 // Cambiar de parada en el título, con un fundido corto.
 let picking = false;
@@ -1885,6 +1891,10 @@ function bindInput() {
   }));
   $('btnBell').addEventListener('click', honk);
   $('btnRopero').addEventListener('click', openRopero);
+  document.querySelectorAll('#soon [data-soon]').forEach((b) => b.addEventListener('click', () => {
+    Audio.ui();
+    UI.toast(b.dataset.soon + ' viene en la Temporada 2. ¡Pronto!');
+  }));
   $('btnRopBack').addEventListener('click', closeRopero);
   $('btnGoogle').addEventListener('click', () => {
     Audio.ui();

@@ -127,6 +127,7 @@ El jefe es El Cadejo, el chucho negro de ojos de brasa que sale de noche a los q
 | Antigua | Tuc-tuc | Se puede jugar |
 | Atitlán | Lancha | Se puede jugar |
 | Xela | Moto | Se puede jugar |
+| Chichicastenango, Huehuetenango, Cobán, Río Dulce, Petén y Esquipulas | | Temporada 2, próximamente |
 
 Cada parada tiene tres etapas, una tienda entre etapas, puntos de guardado y un jefe. En Monterrico es Terremoto, el chucho de Doña Tere: se calma con tres tortillas. En Guazacapán es Cariñoso, un toro que se salió del jaripeo: hay que esquivarlo tres veces para que lo lacen. En la capital es El Rey del Camino, otra camioneta que se te cruza: a la tercera que la esquivás, la para la PMT. En Antigua es Doña Choco: después de tres tandas de chocobananos esquivadas, se le acaban. En Atitlán es el Xocomil: a la tercera que lo esquivás, se calma. En Xela es El Cadejo: a la tercera, lo espanta el Cadejo blanco.
 

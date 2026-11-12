@@ -9,6 +9,7 @@ import {CITY_SPEC} from './props-city.js';
 import {ANTIGUA_SPEC} from './props-antigua.js';
 import {ATITLAN_SPEC} from './props-atitlan.js';
 import {XELA_SPEC} from './props-xela.js';
+import {AUTOS_SPEC} from './props-autos.js';
 
 const C = {
   trunk: hex('#6d4a33'), trunkD: hex('#3f2a22'), leaf: hex('#2f8f4e'), leafD: hex('#1e6b45'), coco: hex('#5c3f22'), cocoG: hex('#6fae3a'),
@@ -435,9 +436,7 @@ export function buildProps() {
   const uni = celUni();
   const mat = new T.ShaderMaterial({vertexShader: VS_CEL, fragmentShader: FS_CEL, uniforms: uni});
   const hullMat = new T.ShaderMaterial({vertexShader: VS_HULL, fragmentShader: FS_HULL, uniforms: uni, side: T.BackSide});
-  Object.assign(SPEC, FARM_SPEC, CITY_SPEC, ANTIGUA_SPEC, ATITLAN_SPEC, XELA_SPEC);
-  // En Xela hay camionetas por todos lados.
-  SPEC.busred = [SPEC.busred[0], 10, SPEC.busred[2]];
+  Object.assign(SPEC, FARM_SPEC, CITY_SPEC, ANTIGUA_SPEC, ATITLAN_SPEC, XELA_SPEC, AUTOS_SPEC);
   buildWheel();
   for (const name in SPEC) {
     const [fn, cap, sh, noHull] = SPEC[name];

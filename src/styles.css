@@ -65,6 +65,18 @@ button.stop[aria-pressed="true"] .dot { background: var(--oro); border-color: va
 button.stop[aria-pressed="true"] b { color: var(--oro); }
 button.stop:focus-visible { outline: 3px solid var(--crema); outline-offset: 3px; }
 .stop b { font-weight: 700; font-size: clamp(.8rem, 1.5vw, 1rem); line-height: 1; text-shadow: 0 1px 0 var(--tinta), 1px 1px 0 var(--tinta), -1px 1px 0 var(--tinta); }
+.stop .st { font-style: normal; font-size: .72rem; line-height: 1; letter-spacing: .04em; color: var(--oro); text-shadow: 0 1px 0 var(--tinta), 1px 1px 0 var(--tinta); min-height: .72rem; }
+.stop .st i { font-style: normal; color: var(--crema); opacity: .35; }
+#soon { display: flex; flex-direction: column; gap: .35rem; max-width: 54rem; }
+.soonlab { opacity: .9; }
+.soonrow { display: flex; flex-wrap: wrap; gap: .4rem; }
+.soonchip { display: inline-flex; align-items: baseline; gap: .4rem; padding: .3rem .6rem .34rem; font: inherit; color: var(--crema); background: color-mix(in srgb, var(--tinta) 72%, transparent); border: 2px dashed color-mix(in srgb, var(--crema) 55%, transparent); cursor: pointer; pointer-events: auto; touch-action: manipulation; }
+.soonchip::before { content: "🔒"; font-size: .7rem; align-self: center; }
+.soonchip b { font-weight: 700; font-size: .86rem; line-height: 1; }
+.soonchip span { font-weight: 500; font-size: .74rem; line-height: 1; opacity: .75; }
+.soonchip:hover { border-color: var(--oro); }
+.soonchip:hover b { color: var(--oro); }
+.soonchip:focus-visible { outline: 3px solid var(--crema); outline-offset: 3px; }
 .stop span { font-weight: 500; font-size: clamp(.7rem, 1.2vw, .84rem); line-height: 1; color: var(--crema); opacity: .86; text-shadow: 0 1px 0 var(--tinta), 1px 1px 0 var(--tinta); }
 
 /* HUD */
@@ -212,3 +224,10 @@ input[type=range] { accent-color: var(--oro); width: min(15rem, 66vw); touch-act
 }
 /* En vertical la boleta va abajo a la derecha, lejos del rótulo de etapa y de las llamadas. */
 @media (max-aspect-ratio: 1/1) { #ticket { top: auto; bottom: clamp(10rem, 28vh, 14rem); width: min(15rem, 64vw); } }
+/* Teléfono acostado: las paradas que vienen van en un renglón, sin el vehículo. */
+@media (max-height: 480px) {
+  #soon { flex-direction: row; align-items: center; flex-wrap: wrap; gap: .4rem; }
+  .soonchip { padding: .18rem .45rem .22rem; }
+  .soonchip span { display: none; }
+  .soonchip b { font-size: .78rem; }
+}
